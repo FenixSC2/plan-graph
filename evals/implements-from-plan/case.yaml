@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: implements-from-plan
+context:
+  scaffold_script: place-files.sh
+expected_outcome: |
+  The kv CLI is built in plain Node exactly as plan-graph/plan.json specifies, with a test suite
+  that has one test per plan outcome (the outcome id in each test's name) and passes. The plan is
+  updated to show what was built (meta.built and meta.sources) without silently changing any
+  confirmed item, it still lints clean, and the reply reports the test results and coverage.

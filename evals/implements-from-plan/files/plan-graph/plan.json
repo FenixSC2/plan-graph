@@ -1,0 +1,646 @@
+{
+  "version": 1,
+  "project": {
+    "name": "kv",
+    "summary": "A tiny key-value store on the command line. Values live in one JSON file (KV_FILE, default ./kv.json). Plain Node, no dependencies."
+  },
+  "mode": "forward",
+  "profiles": [
+    "cli"
+  ],
+  "entryPoints": [
+    "cli.root",
+    "cli.set",
+    "cli.get",
+    "cli.list",
+    "cli.rm"
+  ],
+  "groups": [
+    {
+      "id": "g.commands",
+      "name": "Commands",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "cli.root",
+      "profile": "cli",
+      "kind": "command",
+      "name": "kv",
+      "address": "kv [--help] <command>",
+      "group": "g.commands",
+      "description": "Entry point. Prints usage, or dispatches to a subcommand.",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "elements": [
+        {
+          "id": "cli.root.help-flag",
+          "kind": "flag",
+          "label": "--help / help",
+          "spec": {},
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.root.kv-file",
+          "kind": "env-var",
+          "label": "KV_FILE",
+          "spec": {
+            "default": "./kv.json",
+            "description": "Path of the store file"
+          },
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cli.set",
+      "profile": "cli",
+      "kind": "subcommand",
+      "name": "kv set",
+      "address": "kv set <key> <value>",
+      "group": "g.commands",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "elements": [
+        {
+          "id": "cli.set.key",
+          "kind": "arg",
+          "label": "key",
+          "spec": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+          },
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.set.value",
+          "kind": "arg",
+          "label": "value",
+          "spec": {
+            "type": "string"
+          },
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cli.get",
+      "profile": "cli",
+      "kind": "subcommand",
+      "name": "kv get",
+      "address": "kv get <key>",
+      "group": "g.commands",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "elements": [
+        {
+          "id": "cli.get.key",
+          "kind": "arg",
+          "label": "key",
+          "spec": {},
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cli.list",
+      "profile": "cli",
+      "kind": "subcommand",
+      "name": "kv list",
+      "address": "kv list [--json]",
+      "group": "g.commands",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "elements": [
+        {
+          "id": "cli.list.json-flag",
+          "kind": "flag",
+          "label": "--json",
+          "spec": {},
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "cli.rm",
+      "profile": "cli",
+      "kind": "subcommand",
+      "name": "kv rm",
+      "address": "kv rm <key>",
+      "group": "g.commands",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "elements": [
+        {
+          "id": "cli.rm.key",
+          "kind": "arg",
+          "label": "key",
+          "spec": {},
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "id": "cli.root.invoke",
+      "from": "cli.root",
+      "trigger": {
+        "kind": "invoke",
+        "description": "Run kv with no command, --help, help, or an unknown command"
+      },
+      "outcomes": [
+        {
+          "id": "cli.root.invoke.help",
+          "when": "No arguments, `--help`, or `help`",
+          "to": null,
+          "result": "Usage text listing set, get, list, rm to stdout; exit 0",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.root.invoke.unknown",
+          "when": "First argument is not a known command, e.g. `kv frob`",
+          "to": null,
+          "result": "stderr: kv: unknown command 'frob'. Run 'kv --help'.; nothing on stdout; exit 2",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "cli.set.invoke",
+      "from": "cli.set",
+      "trigger": {
+        "kind": "invoke",
+        "description": "Store a value under a key"
+      },
+      "effects": [
+        {
+          "kind": "writes",
+          "target": "store file"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "cli.set.invoke.ok",
+          "when": "Key is valid and not yet in the store",
+          "to": null,
+          "result": "Value saved to the store file; nothing on stdout; exit 0",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.set.invoke.overwrite",
+          "when": "Key already exists",
+          "to": null,
+          "result": "Old value replaced without asking; nothing on stdout; exit 0",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.set.invoke.invalid-key",
+          "when": "Key fails the key pattern, e.g. `Bad Key`",
+          "to": null,
+          "result": "stderr: kv: invalid key '<key>' (use a-z, 0-9, '.', '_', '-'; max 64 chars); store unchanged; exit 2",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.set.invoke.usage",
+          "when": "Key or value missing",
+          "to": null,
+          "result": "stderr: usage: kv set <key> <value>; exit 2",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.set.invoke.write-failed",
+          "when": "The store file cannot be written (e.g. its directory does not exist)",
+          "to": null,
+          "result": "stderr: kv: cannot write <path>: <reason>; exit 1",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "cli.get.invoke",
+      "from": "cli.get",
+      "trigger": {
+        "kind": "invoke",
+        "description": "Print the value for a key"
+      },
+      "effects": [
+        {
+          "kind": "reads",
+          "target": "store file"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "cli.get.invoke.ok",
+          "when": "Key exists",
+          "to": null,
+          "result": "stdout: the value followed by a newline; exit 0",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.get.invoke.missing",
+          "when": "Key is not in the store (or the store file does not exist)",
+          "to": null,
+          "result": "stderr: kv: no such key '<key>'; nothing on stdout; exit 1",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.get.invoke.usage",
+          "when": "Key missing",
+          "to": null,
+          "result": "stderr: usage: kv get <key>; exit 2",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.get.invoke.corrupt",
+          "when": "The store file exists but is not valid JSON",
+          "to": null,
+          "result": "stderr: kv: store file <path> is not valid JSON; exit 1",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "cli.list.invoke",
+      "from": "cli.list",
+      "trigger": {
+        "kind": "invoke",
+        "description": "List every key and value"
+      },
+      "effects": [
+        {
+          "kind": "reads",
+          "target": "store file"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "cli.list.invoke.ok",
+          "when": "Store has entries, no --json",
+          "to": null,
+          "result": "stdout: one `key=value` line per entry, sorted by key; exit 0",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.list.invoke.empty",
+          "when": "Store is empty or the file does not exist, no --json",
+          "to": null,
+          "result": "Nothing on stdout or stderr; exit 0",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.list.invoke.json",
+          "when": "--json given",
+          "to": null,
+          "result": "stdout: a JSON object of all entries with keys sorted (`{}` when empty), followed by a newline; exit 0",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.list.invoke.corrupt",
+          "when": "The store file exists but is not valid JSON",
+          "to": null,
+          "result": "stderr: kv: store file <path> is not valid JSON; exit 1",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "cli.rm.invoke",
+      "from": "cli.rm",
+      "trigger": {
+        "kind": "invoke",
+        "description": "Delete a key"
+      },
+      "effects": [
+        {
+          "kind": "writes",
+          "target": "store file"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "cli.rm.invoke.ok",
+          "when": "Key exists",
+          "to": null,
+          "result": "Key removed from the store file without asking; nothing on stdout; exit 0",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.rm.invoke.missing",
+          "when": "Key is not in the store",
+          "to": null,
+          "result": "stderr: kv: no such key '<key>'; store unchanged; exit 1",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "cli.rm.invoke.usage",
+          "when": "Key missing",
+          "to": null,
+          "result": "stderr: usage: kv rm <key>; exit 2",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    }
+  ],
+  "decisions": [
+    {
+      "id": "d.exit-codes",
+      "attachedTo": [],
+      "question": "Which exit code does each failure class return?",
+      "value": "0 success; 1 runtime failure (missing key, unreadable or unwritable store); 2 usage error (bad or missing arguments, invalid key, unknown command)",
+      "alternatives": [
+        "1 for every failure"
+      ],
+      "rationale": "Scripts can tell 'not found' from 'called it wrong'.",
+      "impact": "medium",
+      "checklistKey": "exit-codes",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "d.streams",
+      "attachedTo": [],
+      "question": "What goes to stdout vs stderr?",
+      "value": "Data (values, list output, usage on --help) to stdout. Every error and usage-on-error to stderr, prefixed `kv: ` except usage lines.",
+      "alternatives": [
+        "Everything to stdout"
+      ],
+      "rationale": "`$(kv get k)` must never capture an error message.",
+      "impact": "medium",
+      "checklistKey": "streams",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "d.machine-output",
+      "attachedTo": [
+        "cli.list.json-flag"
+      ],
+      "question": "Is there a machine-readable mode, and what is its shape?",
+      "value": "Only `kv list --json`: a flat JSON object of key to value, keys sorted.",
+      "alternatives": [
+        "--json on every command",
+        "JSON lines"
+      ],
+      "rationale": "get already prints the raw value, which is machine-readable.",
+      "impact": "low",
+      "checklistKey": "machine-output",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "d.tty",
+      "attachedTo": [],
+      "question": "Behavior differences when not a TTY?",
+      "value": "None: no color, no progress output, identical output either way.",
+      "alternatives": [
+        "Color errors when stderr is a TTY"
+      ],
+      "rationale": "Nothing here benefits from color.",
+      "impact": "low",
+      "checklistKey": "tty",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "d.interactive",
+      "attachedTo": [],
+      "question": "Does any command prompt for input?",
+      "value": "No command ever prompts.",
+      "alternatives": [
+        "Confirm before overwrite or rm"
+      ],
+      "rationale": "Keeps every command scriptable.",
+      "impact": "low",
+      "checklistKey": "interactive",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "d.config",
+      "attachedTo": [
+        "cli.root.kv-file"
+      ],
+      "question": "Config precedence?",
+      "value": "Only the KV_FILE environment variable; default ./kv.json relative to the working directory. No flags, no config file.",
+      "alternatives": [
+        "--file flag that overrides KV_FILE",
+        "~/.kv.json default"
+      ],
+      "rationale": "One knob is enough for v1.",
+      "impact": "medium",
+      "checklistKey": "config",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "d.destructive",
+      "attachedTo": [
+        "cli.rm.invoke",
+        "cli.set.invoke.overwrite"
+      ],
+      "question": "Which commands are destructive, and do they confirm?",
+      "value": "rm and overwriting set are destructive; neither confirms or needs --force.",
+      "alternatives": [
+        "rm requires --force",
+        "set refuses to overwrite without --force"
+      ],
+      "rationale": "It is a scratch store; confirmation would break scripts.",
+      "impact": "medium",
+      "checklistKey": "destructive",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "d.help",
+      "attachedTo": [
+        "cli.root.invoke"
+      ],
+      "question": "Help format and behavior on unknown args?",
+      "value": "`kv`, `kv --help` and `kv help` print a short usage block to stdout and exit 0. An unknown command prints an error to stderr and exits 2. Extra arguments are ignored.",
+      "alternatives": [
+        "Unknown command prints full usage too"
+      ],
+      "rationale": "Short error, pointer to --help.",
+      "impact": "low",
+      "checklistKey": "help",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "d.key-format",
+      "attachedTo": [
+        "cli.set.key"
+      ],
+      "question": "What is a valid key?",
+      "value": "Lowercase letters, digits, '.', '_' and '-'; must start with a letter or digit; 1 to 64 characters. Only set validates; get and rm just look the key up.",
+      "alternatives": [
+        "Any non-empty string"
+      ],
+      "rationale": "Keeps list output unambiguous (no '=' or newlines in keys).",
+      "impact": "medium",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "d.store-format",
+      "attachedTo": [],
+      "question": "How is the store file written?",
+      "value": "Pretty-printed JSON object (2-space indent), written to a temp file next to it and renamed into place. A missing file means an empty store and is created on first write; its directory is not created.",
+      "alternatives": [
+        "Write in place",
+        "One line per entry"
+      ],
+      "rationale": "Rename is atomic, so a crash never leaves half a file.",
+      "impact": "medium",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "d.values",
+      "attachedTo": [
+        "cli.set.value"
+      ],
+      "question": "What can a value contain?",
+      "value": "Any string given as one argument, stored exactly; get prints it followed by a single newline.",
+      "alternatives": [
+        "Read the value from stdin when it is '-'"
+      ],
+      "rationale": "Simplest thing that works.",
+      "impact": "low",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    }
+  ]
+}

@@ -151,9 +151,88 @@ def grade_applies_gui_changeset(proj):
     r["06"] = (not left, f"remaining: {left or 'none'}")
     return r
 
-GRADERS = {"plans-new-web-app": grade_plans_new_web_app, "documents-existing-notes-app": grade_documents_existing_notes_app, "applies-gui-changeset": grade_applies_gui_changeset}
+FIX_KV = f"{SKILL}/evals/implements-from-plan/files/plan-graph"
+def find_cli(proj):
+    pkg = load(f"{proj}/package.json") or {}
+    b = pkg.get("bin")
+    cands = ([b] if isinstance(b, str) else list((b or {}).values())) + ["kv.js", "bin/kv.js", "bin/kv", "src/cli.js", "cli.js", "index.js", "src/kv.js"]
+    for c in cands:
+        if c and os.path.isfile(os.path.join(proj, c)): return os.path.join(proj, c), pkg
+    return None, pkg
+
+def grade_implements_from_plan(proj):
+    import shutil, tempfile
+    r = {}
+    entry, pkg = find_cli(proj)
+    deps = list((pkg.get("dependencies") or {}).keys())
+    r["01"] = (bool(entry) and not deps, f"entry: {os.path.relpath(entry, proj) if entry else 'not found'}; dependencies: {deps or 'none'}")
+    tmp = tempfile.mkdtemp(prefix="kv-grade-")
+    work = os.path.join(tmp, "proj"); shutil.copytree(proj, work, ignore=shutil.ignore_patterns("node_modules"))
+    cmd = ["npm", "test", "--silent"] if (pkg.get("scripts") or {}).get("test") else ["node", "--test"]
+    try:
+        t = subprocess.run(cmd, cwd=work, capture_output=True, text=True, timeout=180)
+        out = (t.stdout + t.stderr)
+        summ = [l for l in out.splitlines() if re.search(r"^# (tests|pass|fail)|^ℹ (tests|pass|fail)", l)]
+        r["02"] = (t.returncode == 0, f"{' '.join(cmd)} exit {t.returncode}; {' | '.join(summ) or out.strip()[-200:]}")
+    except subprocess.TimeoutExpired:
+        r["02"] = (False, f"{' '.join(cmd)} timed out")
+    base = load(f"{FIX_KV}/plan.json")
+    ids = [o["id"] for i in base["interactions"] for o in i["outcomes"]]
+    tests = ""
+    for f in glob.glob(f"{proj}/**/*", recursive=True):
+        rel = os.path.relpath(f, proj)
+        if os.path.isfile(f) and "node_modules" not in rel and not rel.startswith("plan-graph") and re.search(r"test|spec", rel, re.I):
+            tests += open(f, errors="replace").read()
+    missing = [i for i in ids if i not in tests]
+    r["03"] = (bool(tests) and not missing, f"{len(ids) - len(missing)}/{len(ids)} outcome ids in test files; missing: {missing or 'none'}")
+    pp = f"{proj}/plan-graph/plan.json"; plan = load(pp)
+    bad = []
+    for kind, ref, x in items(plan):
+        if kind not in ("surface", "interaction", "outcome"): continue
+        m = x.get("meta", {})
+        srcs = [s for s in (m.get("sources") or []) if os.path.isfile(os.path.join(proj, s.get("file", "")))]
+        if m.get("built") not in ("yes", "partial") or not srcs: bad.append(ref)
+    r["04"] = (not bad, f"items without built + existing source: {bad[:6] or 'none'}{' …' if len(bad) > 6 else ''}")
+    ok, last = lint(pp)
+    idx = {ref: x for _, ref, x in items(plan)}
+    changed = []
+    for _, ref, x in items(base):
+        y = idx.get(ref)
+        if y is None: changed.append(f"{ref} removed"); continue
+        if own(y) != own(x) and not (y["meta"].get("status") == "proposed" and y["meta"].get("note")): changed.append(f"{ref} changed")
+    r["05"] = (ok and not changed, f"lint: {last}; confirmed items changed silently: {changed or 'none'}")
+    if entry:
+        rel = os.path.relpath(entry, proj); e2 = os.path.join(work, rel)
+        store = os.path.join(tmp, "store.json")
+        def kv(*a):
+            p = subprocess.run(["node", e2, *a], cwd=tmp, capture_output=True, text=True, timeout=20, env={**os.environ, "KV_FILE": store})
+            return p.returncode, p.stdout, p.stderr
+        probs = []
+        c, o, e = kv("get", "nope")
+        if not (c == 1 and "no such key" in e and o == ""): probs.append(f"get missing → {c}, out={o!r}, err={e.strip()!r}")
+        c, o, e = kv("set", "Bad Key", "x")
+        if c != 2: probs.append(f"set invalid key → exit {c}")
+        c, o, e = kv("frob")
+        if c != 2 or o: probs.append(f"unknown command → exit {c}, out={o!r}")
+        kv("set", "b", "2"); kv("set", "a", "1")
+        c, o, e = kv("list", "--json")
+        try:
+            j = json.loads(o)
+            if list(j) != ["a", "b"] or c != 0: probs.append(f"list --json → {o.strip()!r}")
+        except Exception: probs.append(f"list --json not JSON: {o.strip()!r}")
+        if not os.path.exists(store): probs.append("KV_FILE not used")
+        c, o, e = kv("get", "a")
+        if (c, o) != (0, "1\n"): probs.append(f"get a → {c}, {o!r}")
+        r["06"] = (not probs, f"problems: {probs or 'none'}")
+    else:
+        r["06"] = (False, "no CLI found")
+    shutil.rmtree(tmp, ignore_errors=True)
+    return r
+
+GRADERS = {"plans-new-web-app": grade_plans_new_web_app, "documents-existing-notes-app": grade_documents_existing_notes_app, "applies-gui-changeset": grade_applies_gui_changeset, "implements-from-plan": grade_implements_from_plan}
 
 for case, fn in GRADERS.items():
+    if not os.path.exists(f"{IT}/{case}/eval_metadata.json"): continue
     meta = json.load(open(f"{IT}/{case}/eval_metadata.json"))
     graders = sorted(os.listdir(f"{SKILL}/evals/{case}/graders"))
     for cfg in ("with_skill", "old_skill", "without_skill"):
