@@ -16,9 +16,9 @@ decision, with the alternatives the agent considered. You review it in a local g
 what you disagree with and press **Send**. The agent gets your edits as exact operations, not prose,
 then builds from the plan with one test per outcome.
 
-![The Plan Graph editor showing a link shortener's web pages, API endpoints and CLI commands, with the review queue on the left and the inspector on the right](docs/screenshot.png)
+![One review round in the Plan Graph editor: the user switches a decision to a 301 redirect, deletes the custom-alias input with a note, and presses Send; the agent applies the changes, removes the alias error, API field and CLI flag that depended on it, and the editor marks what it changed](docs/demo.gif)
 
-<sub>The editor with the bundled example plan: a link shortener with a web UI, an HTTP API and a CLI in one graph.</sub>
+<sub>One review round on the bundled example plan, a link shortener with a web UI, an HTTP API and a CLI in one graph. The agent step is the real <code>plan.ts apply</code> → follow-on edits → <code>plan.ts done</code>, not a mock.</sub>
 
 ## Why
 
