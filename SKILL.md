@@ -54,7 +54,7 @@ Paths below are relative to this skill's directory, written `<skill>`.
 ### The CLI
 
 Run it as `node --experimental-strip-types <skill>/scripts/plan.ts <command> <plan.json>`
-(Node 22.6+). Below, `pg` stands for that whole prefix; shell aliases don't persist
+(Node 22.12+). Below, `pg` stands for that whole prefix; shell aliases don't persist
 between commands, so write it out each time.
 
 | Command | Does |

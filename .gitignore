@@ -2,3 +2,4 @@ node_modules/
 gui/dist/
 plan-graph-workspace/
 .DS_Store
+.playwright-mcp/

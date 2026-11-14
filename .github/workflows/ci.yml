@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: gui/package-lock.json
+      - run: npm ci --prefix gui
+      - name: Model tests (diff, apply, cascades)
+        run: npm --prefix gui test
+      - name: Type-check and build the editor
+        run: npm --prefix gui run build
+      - name: Lint the bundled plans
+        run: |
+          node --experimental-strip-types scripts/plan.ts lint examples/link-shortener/plan.json
+          node --experimental-strip-types scripts/plan.ts lint evals/implements-from-plan/files/plan-graph/plan.json
+      - name: Plan builder regenerates the eval fixture unchanged
+        run: |
+          node --experimental-strip-types evals/implements-from-plan/fixture.build.ts
+          git diff --exit-code evals/implements-from-plan/files/plan-graph/plan.json

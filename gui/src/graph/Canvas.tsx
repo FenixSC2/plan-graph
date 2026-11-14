@@ -118,7 +118,6 @@ export function Canvas({ plan, positions, onMoved, showCalls, onConnect, onRetar
       minZoom={0.15}
       maxZoom={1.75}
       colorMode="system"
-      proOptions={{ hideAttribution: true }}
     >
       <Background gap={20} size={1} />
       <Controls showInteractive={false} />
