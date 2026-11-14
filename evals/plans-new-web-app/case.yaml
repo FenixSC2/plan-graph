@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: plans-new-web-app
+expected_outcome: |
+  A plan-graph/plan.json covering the web pages and API endpoints of the recipe site, with
+  failure outcomes for anything that can fail, every web and api checklist item answered as a
+  decision with alternatives and impact, all items agent/proposed, no lint errors, and a short
+  message to the user pointing at the few highest-impact decisions to review first. No app code.

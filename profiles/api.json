@@ -1,0 +1,20 @@
+{
+  "id": "api",
+  "name": "HTTP API",
+  "surfaceKinds": ["endpoint", "webhook", "stream"],
+  "elementKinds": ["path-param", "query-param", "header", "body-field", "response-field"],
+  "triggerKinds": ["request", "event", "schedule"],
+  "addressFormat": "METHOD /path, e.g. POST /api/links",
+  "requiredStates": {},
+  "decisionChecklist": [
+    { "key": "auth", "question": "How are callers authenticated, and which endpoints are public?" },
+    { "key": "error-shape", "question": "What is the error response body shape?" },
+    { "key": "validation", "question": "Which inputs are validated, and which status does each failure return?" },
+    { "key": "rate-limit", "question": "Is there rate limiting, per what key, and what is returned?" },
+    { "key": "idempotency", "question": "Which writes are idempotent or deduplicated?" },
+    { "key": "pagination", "question": "How are list responses paginated?" },
+    { "key": "versioning", "question": "How is the API versioned?" },
+    { "key": "cors", "question": "Which origins may call the API from a browser?" }
+  ],
+  "testTarget": "http"
+}

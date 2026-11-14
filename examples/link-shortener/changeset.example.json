@@ -1,0 +1,56 @@
+{
+  "base": "sha256:<hash of plan.json at time of editing>",
+  "note": "First review pass.",
+  "ops": [
+    {
+      "op": "confirm",
+      "refs": ["d.redirect-status", "d.auth", "d.web-errors", "d.cli-exit-codes", "web.result.copy"],
+      "note": "Reviewed and agree."
+    },
+    {
+      "op": "update",
+      "ref": "d.expiry",
+      "set": { "value": "After 1 year with no clicks" },
+      "note": "Don't want to store dead links forever."
+    },
+    {
+      "op": "update",
+      "ref": "web.result.new.go",
+      "set": { "result": "Inputs cleared and URL field focused" }
+    },
+    {
+      "op": "remove",
+      "ref": "web.home.alias-input",
+      "note": "Drop custom aliases for v1."
+    },
+    {
+      "op": "add",
+      "kind": "element",
+      "parent": "web.result",
+      "value": {
+        "id": "web.result.qr-btn", "kind": "button", "label": "QR code",
+        "meta": { "origin": "user", "status": "confirmed" }
+      }
+    },
+    {
+      "op": "add",
+      "kind": "surface",
+      "value": {
+        "id": "web.qr-modal", "profile": "web", "kind": "modal", "name": "QR code",
+        "meta": { "origin": "user", "status": "sketch", "note": "Shows a QR for the short URL, with a way to download it." }
+      }
+    },
+    {
+      "op": "add",
+      "kind": "interaction",
+      "value": {
+        "id": "web.result.show-qr", "from": "web.result",
+        "trigger": { "kind": "click", "element": "web.result.qr-btn", "description": "Click QR code" },
+        "outcomes": [
+          { "id": "web.result.show-qr.open", "when": "always", "to": "web.qr-modal", "meta": { "origin": "user", "status": "confirmed" } }
+        ],
+        "meta": { "origin": "user", "status": "confirmed" }
+      }
+    }
+  ]
+}

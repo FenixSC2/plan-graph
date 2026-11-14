@@ -1,0 +1,23 @@
+{
+  "id": "web",
+  "name": "Web app",
+  "surfaceKinds": ["page", "modal", "drawer", "toast", "tab"],
+  "elementKinds": ["button", "link", "input", "select", "checkbox", "form", "text", "list", "image"],
+  "triggerKinds": ["click", "submit", "change", "on-enter", "on-leave", "keyboard", "timer", "external"],
+  "addressFormat": "URL route, e.g. /links/:code",
+  "requiredStates": {
+    "page:loads-data": ["loading", "ready", "empty", "error"],
+    "form": ["idle", "submitting", "error"]
+  },
+  "decisionChecklist": [
+    { "key": "auth", "question": "Which surfaces require sign-in, and what happens to a signed-out user who reaches one?" },
+    { "key": "unsaved-changes", "question": "What happens when leaving a surface with unsaved input?" },
+    { "key": "loading-feedback", "question": "How is in-progress work shown (spinner, skeleton, disabled controls)?" },
+    { "key": "error-presentation", "question": "Where and how are errors shown (inline, toast, error page)?" },
+    { "key": "success-feedback", "question": "How is success confirmed for non-navigating actions?" },
+    { "key": "deep-links", "question": "Which surfaces are directly linkable/bookmarkable, and what does a bad link show?" },
+    { "key": "responsive", "question": "Which viewports are supported, and does layout or navigation change on mobile?" },
+    { "key": "accessibility", "question": "Target accessibility level; keyboard and focus behavior for modals." }
+  ],
+  "testTarget": "playwright"
+}

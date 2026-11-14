@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: documents-existing-notes-app
+context:
+  scaffold_script: place-files.sh
+expected_outcome: |
+  A retroactive plan-graph/plan.json for notes-app with origin code items, file:line sources,
+  implicit decisions recorded from the code (error shapes, exit codes, delete confirmation),
+  and findings reported to the user without changing the code — including that the export
+  route is shadowed by /api/notes/:id, that error response shapes are inconsistent, and that
+  the CLI sends errors to stdout with exit code 1 for everything.

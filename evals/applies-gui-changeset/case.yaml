@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: applies-gui-changeset
+context:
+  scaffold_script: place-files.sh
+expected_outcome: |
+  The changeset's ops are applied to plan-graph/plan.json, the alias removal's semantic fallout
+  (alias-taken outcomes, the 409, the CLI alias flag) is removed or proposed for removal with
+  notes, the QR modal sketch is elaborated into agent/proposed detail, the comment on d.auth is
+  answered in chat (offering, not making, any redesign it implies), the plan lints clean, changeset files are cleared, and the reply summarizes what was
+  done beyond the literal edits.

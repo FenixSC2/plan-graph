@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "plan-graph",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["gui/node_modules/vite/bin/vite.js", "gui", "--port", "5199", "--strictPort"],
+      "port": 5199
+    }
+  ]
+}

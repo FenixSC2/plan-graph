@@ -1,0 +1,20 @@
+{
+  "id": "cli",
+  "name": "Command-line tool",
+  "surfaceKinds": ["command", "subcommand", "prompt", "output"],
+  "elementKinds": ["arg", "flag", "env-var", "config-key", "stdin"],
+  "triggerKinds": ["invoke", "answer", "signal", "pipe"],
+  "addressFormat": "Command signature, e.g. short create <url> [--alias <a>] [--json]",
+  "requiredStates": {},
+  "decisionChecklist": [
+    { "key": "exit-codes", "question": "Which exit code does each failure class return?" },
+    { "key": "streams", "question": "What goes to stdout vs stderr?" },
+    { "key": "machine-output", "question": "Is there a machine-readable mode (--json), and what is its shape?" },
+    { "key": "tty", "question": "Behavior differences when not a TTY (color, prompts, progress bars)?" },
+    { "key": "interactive", "question": "Does any command prompt for input, and what is the non-interactive fallback?" },
+    { "key": "config", "question": "Config precedence: flags vs env vars vs config file?" },
+    { "key": "destructive", "question": "Which commands are destructive, and do they confirm or need --force?" },
+    { "key": "help", "question": "Help/usage format and behavior on unknown args." }
+  ],
+  "testTarget": "subprocess"
+}
