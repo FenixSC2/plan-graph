@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "plan-graph",
+  "description": "Plan Graph: plan apps as an editable graph before your agent builds them.",
+  "owner": {
+    "name": "Nathan Barth",
+    "url": "https://github.com/FenixSC2"
+  },
+  "plugins": [
+    {
+      "name": "plan-graph",
+      "source": "./",
+      "description": "See and edit every decision your AI coding agent is about to make, as a graph of screens, commands and endpoints, before it writes code.",
+      "version": "0.1.0",
+      "author": { "name": "Nathan Barth", "url": "https://github.com/FenixSC2" },
+      "homepage": "https://github.com/FenixSC2/plan-graph",
+      "license": "MIT",
+      "category": "development"
+    }
+  ]
+}

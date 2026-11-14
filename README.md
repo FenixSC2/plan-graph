@@ -39,11 +39,33 @@ then builds from the plan with one test per outcome.
 
 ## Install
 
-Requirements: **Node 22.12 or newer** and an agent that supports `SKILL.md` skills, such as
-[Claude Code](https://claude.com/claude-code).
+You need **Node 22.12 or newer**.
 
-To install it for every project, clone it into your personal skills folder and install the
-editor's dependencies:
+### Claude Code plugin (recommended)
+
+In Claude Code, run:
+
+```
+/plugin install plan-graph --marketplace FenixSC2/plan-graph
+```
+
+On Claude Code versions older than 2.1.275, add the marketplace first:
+
+```
+/plugin marketplace add FenixSC2/plan-graph
+```
+
+```
+/plugin install plan-graph@plan-graph
+```
+
+The skill is available from your next session. The first time the editor starts, the agent runs
+`npm install` for it. To get new versions, run `/plugin update plan-graph@plan-graph`.
+
+### As a plain skill
+
+This works with Claude Code or any other agent that loads `SKILL.md` skills from a folder. Clone
+the repo into your skills folder and install the editor's dependencies:
 
 ```bash
 git clone https://github.com/FenixSC2/plan-graph ~/.claude/skills/plan-graph
@@ -54,10 +76,7 @@ npm install --prefix ~/.claude/skills/plan-graph/gui
 ```
 
 To install it for one project only, clone it into `.claude/skills/plan-graph` inside that project
-instead.
-
-Start a new agent session afterwards so the skill is picked up. To update it later, run
-`git pull` in the skill folder.
+instead. To update it later, run `git pull` in that folder.
 
 ## Use it
 

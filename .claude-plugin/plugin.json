@@ -1,0 +1,15 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "plan-graph",
+  "version": "0.1.0",
+  "description": "See and edit every decision your AI coding agent is about to make, as a graph of screens, commands and endpoints, before it writes code. Review it in a local editor; the plan drives the build and one test per outcome.",
+  "author": {
+    "name": "Nathan Barth",
+    "url": "https://github.com/FenixSC2"
+  },
+  "homepage": "https://github.com/FenixSC2/plan-graph",
+  "repository": "https://github.com/FenixSC2/plan-graph",
+  "license": "MIT",
+  "keywords": ["planning", "spec", "graph", "review", "web", "cli", "api", "testing"],
+  "skills": ["./"]
+}

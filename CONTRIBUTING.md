@@ -54,3 +54,9 @@ To try the editor against the example plan, run `npm --prefix gui run dev` and o
 - If you change agent behavior in `SKILL.md`, say in the PR what problem you saw and, ideally, which
   eval case shows it.
 - If you change the format, update `schema/`, the example plan and the editor together.
+
+## Releasing
+
+The plugin manifest is `.claude-plugin/plugin.json` and the marketplace entry is
+`.claude-plugin/marketplace.json`. Bump `version` in both, run
+`claude plugin validate --strict .`, and tag the release with `claude plugin tag`.
