@@ -1,5 +1,7 @@
 # Plan Graph
 
+[![CI](https://github.com/FenixSC2/plan-graph/actions/workflows/ci.yml/badge.svg)](https://github.com/FenixSC2/plan-graph/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **See and edit every decision your AI coding agent is about to make, before it writes any code.**
 
 When an agent builds an app, it makes hundreds of small choices you never asked about. Where does the
