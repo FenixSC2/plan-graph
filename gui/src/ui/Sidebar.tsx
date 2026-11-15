@@ -3,8 +3,11 @@ import { buildIndex, labelOf, uniqueId, userMeta, type Located, type Ref } from 
 import { revertChange, type Change } from "../model/diff.ts";
 import type { Store } from "../store.ts";
 import { ImpactBadge, StatusBadge } from "./fields.tsx";
+import { clusterStats, clusters, type Cluster, type ClusterStats } from "../graph/groups.ts";
+import { groupHue } from "../graph/GroupNodes.tsx";
+import { surfaceOf } from "../model/plan.ts";
 
-export type Tab = "review" | "decisions" | "issues" | "changes";
+export type Tab = "map" | "review" | "decisions" | "issues" | "changes";
 
 interface Props {
   store: Store;
@@ -12,14 +15,17 @@ interface Props {
   setTab: (t: Tab) => void;
   selected: Ref | null;
   select: (ref: Ref | null) => void;
+  openGroup: (groupId: string) => void;
 }
 
 const IMPACT_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 };
 const TYPE_RANK = ["decision", "surface", "interaction", "outcome", "element", "state", "group"];
 
-export function Sidebar({ store, tab, setTab, selected, select }: Props) {
+export function Sidebar({ store, tab, setTab, selected, select, openGroup }: Props) {
   const review = useMemo(() => reviewItems(store.index), [store.index]);
+  const groupCount = useMemo(() => (store.plan ? clusters(store.plan).length : 0), [store.plan]);
   const counts = {
+    map: groupCount,
     review: review.length,
     decisions: store.plan?.decisions.length ?? 0,
     issues: store.issues.filter((i) => i.severity !== "info").length,
@@ -28,7 +34,7 @@ export function Sidebar({ store, tab, setTab, selected, select }: Props) {
   return (
     <aside className="sidebar">
       <nav className="tabs">
-        {(["review", "decisions", "issues", "changes"] as Tab[]).map((t) => (
+        {(["map", "review", "decisions", "issues", "changes"] as Tab[]).map((t) => (
           <button key={t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>
             {t[0].toUpperCase() + t.slice(1)}
             {counts[t] > 0 && <span className={`count${t === "issues" && store.blocking.length ? " count-error" : ""}`}>{counts[t]}</span>}
@@ -36,12 +42,99 @@ export function Sidebar({ store, tab, setTab, selected, select }: Props) {
         ))}
       </nav>
       <div className="tab-body">
+        {tab === "map" && <MapTab store={store} selected={selected} select={select} openGroup={openGroup} />}
         {tab === "review" && <ReviewTab store={store} items={review} selected={selected} select={select} />}
         {tab === "decisions" && <DecisionsTab store={store} selected={selected} select={select} />}
         {tab === "issues" && <IssuesTab store={store} select={select} />}
         {tab === "changes" && <ChangesTab store={store} select={select} />}
       </div>
     </aside>
+  );
+}
+
+/* ───────────────────────── map ───────────────────────── */
+
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+
+function MapTab({ store, selected, select, openGroup }: { store: Store; selected: Ref | null; select: (r: Ref) => void; openGroup: (g: string) => void }) {
+  const plan = store.plan!;
+  const list = useMemo(() => clusters(plan), [plan]);
+  const stats = useMemo(() => clusterStats(plan, store.index, store.issues), [plan, store.index, store.issues]);
+  // Unreviewed items per surface, for the expanded lists.
+  const todo = useMemo(() => {
+    const m = new Map<Ref, number>();
+    const bump = (sid: Ref, status: string) => { if (status !== "confirmed") m.set(sid, (m.get(sid) ?? 0) + 1); };
+    for (const s of plan.surfaces) {
+      bump(s.id, s.meta.status);
+      for (const x of [...(s.states ?? []), ...(s.elements ?? [])]) bump(s.id, x.meta.status);
+    }
+    for (const it of plan.interactions) {
+      const sid = surfaceOf(it.from);
+      bump(sid, it.meta.status);
+      for (const o of it.outcomes) bump(sid, o.meta.status);
+    }
+    return m;
+  }, [plan]);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const toggle = (id: string) => setOpen((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const named = list.filter((c) => c.id !== "__ungrouped").length;
+
+  return (
+    <div className="map">
+      <p className="muted small">
+        {named
+          ? `${named} group${named === 1 ? "" : "s"} · ${plan.surfaces.length} surfaces. Click a group to zoom to it; expand it to see its surfaces.`
+          : "This plan has no groups yet. Ask the agent to group the surfaces by area of the app: large plans are much easier to read that way."}
+      </p>
+      <ul className="map-list">
+        {list.map((c, i) => (
+          <MapGroup
+            key={c.id} cluster={c} stats={stats.get(c.id)} hue={groupHue(i)} expanded={open.has(c.id)}
+            onToggle={() => toggle(c.id)} onOpen={() => openGroup(c.id)}
+            surfaces={c.surfaces.map((sid) => store.index.get(sid)).filter((l): l is Extract<Located, { type: "surface" }> => l?.type === "surface")}
+            todo={todo} selected={selected} select={select}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function MapGroup({ cluster, stats, hue, expanded, onToggle, onOpen, surfaces, todo, selected, select }: {
+  cluster: Cluster; stats?: ClusterStats; hue: number; expanded: boolean; onToggle: () => void; onOpen: () => void;
+  surfaces: Extract<Located, { type: "surface" }>[]; todo: Map<Ref, number>; selected: Ref | null; select: (r: Ref) => void;
+}) {
+  return (
+    <li className="map-group" style={{ "--g": `${hue}` } as React.CSSProperties}>
+      <div className="map-head">
+        <button className="map-caret" onClick={onToggle} title={expanded ? "Collapse" : "Show surfaces"}>{expanded ? "▾" : "▸"}</button>
+        <button className="map-title" onClick={onOpen} title="Zoom to this group">
+          <span className="map-swatch" />
+          <span className="map-name">{cluster.name}</span>
+          {stats && stats.unreviewed > 0 && <span className="map-stodo">{stats.unreviewed} to review</span>}
+        </button>
+      </div>
+      {cluster.description && <div className="map-desc">{cluster.description}</div>}
+      {stats && (
+        <div className="map-stats">
+          {plural(stats.surfaces, "surface")} · {plural(stats.actions, "action")} · {plural(stats.outcomes, "outcome")}
+          {stats.problems > 0 && <span className="map-warn"> · {stats.problems} issue{stats.problems === 1 ? "" : "s"}</span>}
+          {stats.openDecisions > 0 && <span className="map-todo"> · {stats.openDecisions} open decision{stats.openDecisions === 1 ? "" : "s"}</span>}
+        </div>
+      )}
+      {expanded && (
+        <ul className="map-surfaces">
+          {surfaces.map(({ item: s }) => (
+            <li key={s.id} className={selected === s.id ? "is-selected" : ""} onClick={() => select(s.id)}>
+              <span className={`ptag gp-${s.profile}`}>{s.profile}</span>
+              <span className="map-sname">{s.name}</span>
+              {(todo.get(s.id) ?? 0) > 0 && <span className="map-stodo">{todo.get(s.id)}</span>}
+              {s.address && <span className="map-addr">{s.address}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }
 

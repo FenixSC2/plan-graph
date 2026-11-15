@@ -1,15 +1,16 @@
 import { memo, useContext, useEffect } from "react";
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
-import { UIContext } from "../ui/context.ts";
+import { CompactContext, UIContext } from "../ui/context.ts";
 import { interactionLabel } from "../model/plan.ts";
 import type { SurfaceNodeT } from "./build.ts";
 
 function SurfaceNodeImpl({ id, data }: NodeProps<SurfaceNodeT>) {
   const { surface, rows, freeElements, isEntry } = data;
   const ui = useContext(UIContext);
+  const compact = useContext(CompactContext);
   const updateInternals = useUpdateNodeInternals();
   const handleKey = rows.map((r) => r.interaction.id).join("|");
-  useEffect(() => updateInternals(id), [id, handleKey, updateInternals]);
+  useEffect(() => updateInternals(id), [id, handleKey, compact, updateInternals]);
 
   const sel = ui.selected;
   const pick = (ref: string) => (e: React.MouseEvent) => {
@@ -17,6 +18,40 @@ function SurfaceNodeImpl({ id, data }: NodeProps<SurfaceNodeT>) {
     ui.select(ref);
   };
   const dot = (ref: string) => (ui.agentChanged.has(ref) ? <span className="agent-dot" title="Updated by the agent" /> : null);
+
+  if (compact) {
+    // Zoomed out: just the header and a count. Every row handle still exists (stacked on the
+    // right edge) so edges keep their endpoints without rendering the rows themselves.
+    const outcomes = rows.reduce((n, r) => n + r.interaction.outcomes.length, 0);
+    const changed = ui.agentChanged.size > 0 && [...ui.agentChanged].some((r) => r === surface.id || r.startsWith(surface.id + ".") || r.startsWith(surface.id + "#"));
+    return (
+      <div
+        className={`snode compact status-${surface.meta.status} profile-${surface.profile}${sel === surface.id ? " is-selected" : ""}`}
+        onClick={pick(surface.id)}
+      >
+        <Handle type="target" id="in" position={Position.Left} className="h-in" />
+        <header className="snode-head">
+          <div className="snode-tags">
+            <span className="ptag">{surface.profile}</span>
+            <span className="ktag">{surface.kind}</span>
+            {isEntry && <span className="etag">entry</span>}
+            {surface.meta.status === "sketch" && <span className="sktag">needs detail</span>}
+          </div>
+          <div className="snode-name">
+            {surface.name}
+            {changed && <span className="agent-dot" />}
+          </div>
+          <div className="snode-count">
+            {rows.length} action{rows.length === 1 ? "" : "s"} · {outcomes} outcome{outcomes === 1 ? "" : "s"}
+          </div>
+        </header>
+        <div className="snode-handles">
+          {rows.map((r) => <Handle key={r.interaction.id} type="source" id={r.interaction.id} position={Position.Right} className="h-out h-compact" />)}
+          <Handle type="source" id="__new" position={Position.Right} className="h-out h-compact" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

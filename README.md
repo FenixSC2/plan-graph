@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/FenixSC2/plan-graph/actions/workflows/ci.yml/badge.svg)](https://github.com/FenixSC2/plan-graph/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**See and edit every decision your AI coding agent is about to make, before it writes any code.**
+**See and edit every decision your AI coding agent is about to make, before it writes any code. Make a big codebase readable at a glance.**
 
 When an agent builds an app, it makes hundreds of small choices you never asked about. Where does the
 button go after a successful save? What does the error say? Which exit code means "not found"? Is the
@@ -22,6 +22,10 @@ then builds from the plan with one test per outcome.
 
 ## Why
 
+- **Readable at any size.** A wall of text stops working past a few dozen screens; a map doesn't.
+  Large plans open on a **group map**: one card per area of the app (Auth, Checkout, Admin API…)
+  with what it contains, how the areas connect, and what still needs review. Click a group to
+  zoom into it. In the full graph, groups are labelled regions you can read at any zoom.
 - **No silent assumptions.** Anything a reasonable developer could have done differently, and you would
   notice, is a *decision* with alternatives, a rationale and an impact level. You can switch to an
   alternative in one click.
@@ -34,8 +38,9 @@ then builds from the plan with one test per outcome.
   stdout vs. stderr for CLIs, error body shape and pagination for APIs, loading, empty and error
   states for pages).
 - **Works on existing code too.** Point it at a codebase and it maps the routes, pages and commands
-  that already exist. It records the decisions the code makes without stating them, and flags dead
-  routes, missing error handling and inconsistent responses.
+  that already exist, grouped by area. It records the decisions the code makes without stating them,
+  and flags dead routes, missing error handling and inconsistent responses. On an unfamiliar
+  project, that map is the fastest way in.
 
 ## Install
 
@@ -92,6 +97,9 @@ to be mapped, and the agent picks it up:
 > Audit the Express API in `src/routes/`. I want every route, what it returns in each case, and
 > which ones are dead.
 
+> I just inherited this repo and it's huge. Map it so I can see what the app does and where things
+> live before I touch anything.
+
 A session goes like this:
 
 1. **Draft.** The agent writes `plan-graph/plan.json` in your project, or extracts it from your
@@ -129,7 +137,39 @@ npm --prefix gui run dev
 ```
 
 This opens the bundled link-shortener plan at <http://localhost:5199>. Edits you send are written to
-`examples/link-shortener/changeset.json`.
+`examples/link-shortener/changeset.json`. To see the group map, open the larger example instead:
+
+```bash
+PLAN=examples/team-workspace/plan.json npm --prefix gui run dev
+```
+
+## Big projects: the group map
+
+Past a few dozen screens, a list or a single giant diagram stops working: you can't tell where to
+look. Plan Graph sorts every surface into **groups**, one per area of the product (Auth,
+Billing, Admin…), each with a one-line description. Agents do this automatically for plans of more
+than 15 surfaces, and the linter warns if they don't.
+
+Large plans open on the **group map**. Each area of the app is one card, showing:
+
+- what it contains, by platform;
+- how many actions and outcomes it has;
+- its open decisions and lint issues;
+- how much of it you've reviewed.
+
+Arrows count the paths and calls between areas. Click a card to zoom straight into that group.
+
+![The group map for a 43-surface example plan: seven cards (Auth, Onboarding, Projects, Task board, Notifications, Billing, Admin), each with a description, surface counts by platform, open decisions and a review progress bar, linked by arrows that count the paths between them](docs/group-map.png)
+
+**All surfaces** shows the full graph, with each group drawn as a labelled region. The labels grow as
+you zoom out, so the map stays readable at any zoom. Zoomed out, surfaces turn into compact cards;
+zoom in for every action and outcome. The **Map** tab in the sidebar lists the same groups with
+their surfaces and review counts, so you can jump anywhere in two clicks.
+
+![The same plan as the full graph: seven tinted, labelled regions, each holding its group's surfaces](docs/groups-canvas.png)
+
+This also works on code that already exists. Point the agent at a large or unfamiliar repo
+(`map this codebase so I can see what it does`) and the group map becomes its table of contents.
 
 ## How it works
 
@@ -216,8 +256,8 @@ For a one-file script it's overkill, and the skill tells the agent to say so.
   - a checklist of about eight decisions every project on that platform must answer;
   - a test target.
 
-  Mobile apps, chat bots and desktop apps are the obvious next ones. The agent can write a profile
-  on the spot when you ask for a platform that doesn't have one yet.
+  Web, API, CLI and mobile ship today; chat bots and desktop apps are the obvious next ones. The
+  agent can write a profile on the spot when you ask for a platform that doesn't have one yet.
 - **The editor** is React 19 + React Flow 12 + Vite in [`gui/`](gui). See
   [`gui/README.md`](gui/README.md) for its layout. Run its tests with `npm --prefix gui test` and
   type-check it with `npm --prefix gui run typecheck`.
@@ -228,9 +268,9 @@ For a one-file script it's overkill, and the skill tells the agent to say so.
 
 - A blocking MCP `review_plan()` tool, so that pressing Send hands control straight back to the agent
   (today the agent waits with `plan.ts wait`).
-- Groups drawn as collapsible containers on the canvas.
+- Collapse and expand a single group in place on the full graph.
 - Node positions saved in the plan instead of in browser storage.
-- Profiles for mobile and chat bots.
+- Profiles for chat bots and desktop apps.
 
 Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 

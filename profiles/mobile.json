@@ -1,0 +1,24 @@
+{
+  "id": "mobile",
+  "name": "Mobile app",
+  "surfaceKinds": ["screen", "tab", "modal", "sheet", "alert", "toast", "overlay", "notification", "widget"],
+  "elementKinds": ["button", "link", "input", "toggle", "picker", "list", "text", "image", "switch", "gesture-area"],
+  "triggerKinds": ["tap", "long-press", "swipe", "submit", "change", "on-enter", "on-leave", "back", "deep-link", "push-open", "app-foreground", "timer", "external"],
+  "addressFormat": "Router path or deep link, e.g. /group/[id]/settings or headcount://join/:code",
+  "requiredStates": {
+    "screen:loads-data": ["loading", "ready", "empty", "error"],
+    "form": ["idle", "submitting", "error"]
+  },
+  "decisionChecklist": [
+    { "key": "mobile-auth", "question": "Which screens require a session, and where does a signed-out (or unverified) user land when they reach one?" },
+    { "key": "mobile-offline", "question": "What happens with no network: cached data, queued writes, or an error?" },
+    { "key": "mobile-errors", "question": "How are errors shown (Alert, inline text, toast), and is the wording consistent?" },
+    { "key": "mobile-back", "question": "What do the back gesture and hardware back do on each modal/sheet, and do unsaved edits survive?" },
+    { "key": "mobile-deep-links", "question": "Which surfaces open from a deep link or push notification, and what does a stale/invalid link show?" },
+    { "key": "mobile-permissions", "question": "Which OS permissions are requested (notifications, camera…), when, and what happens on deny?" },
+    { "key": "mobile-feedback", "question": "How is success confirmed for actions that don't navigate (haptics, animation, toast)?" },
+    { "key": "mobile-accessibility", "question": "Dynamic Type, VoiceOver labels, reduce-motion and minimum tap-target behaviour." },
+    { "key": "mobile-destructive", "question": "Which actions are destructive (leave, delete, remove), and how are they confirmed?" }
+  ],
+  "testTarget": "maestro"
+}

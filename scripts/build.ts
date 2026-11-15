@@ -6,7 +6,8 @@
 //   import { create, open, src } from "<skill>/scripts/build.ts";
 //
 //   const p = create({ name: "shorty", summary: "…", profiles: ["web", "api"] });
-//   p.surface({ id: "web.home", profile: "web", kind: "page", name: "Home", address: "/",
+//   p.group("g.create", "Create links", "Shortening a URL, from the form to the API");
+//   p.surface({ id: "web.home", profile: "web", kind: "page", name: "Home", address: "/", group: "g.create",
 //               states: ["idle", "submitting", ["error", "Inline message under the input"]],
 //               elements: [["web.home.url", "input", "Long URL", { type: "url", required: true }],
 //                          ["web.home.shorten-btn", "button", "Shorten"]] });
@@ -97,8 +98,11 @@ export class PlanBuilder {
 
   // ------------------------------------------------------------ creating
 
-  group(id: string, name: string, extra?: MetaExtra): this {
-    (this.plan.groups ??= []).push({ id, name, meta: this.meta(extra) });
+  /** A group of related surfaces. `description` is one line on what this area is for. */
+  group(id: string, name: string, description?: string | MetaExtra, extra?: MetaExtra): this {
+    const desc = typeof description === "string" ? description : undefined;
+    const meta = this.meta(typeof description === "string" ? extra : description);
+    (this.plan.groups ??= []).push({ id, name, ...(desc ? { description: desc } : {}), meta });
     return this;
   }
 

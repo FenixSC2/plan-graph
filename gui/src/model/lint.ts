@@ -20,6 +20,8 @@ export interface Issue {
 }
 
 const FALLIBLE = new Set(["submit", "request", "invoke"]);
+/** Plans with more surfaces than this should group every surface. */
+export const GROUP_THRESHOLD = 15;
 
 export function lint(plan: Plan, profiles: Record<string, Profile>): Issue[] {
   const issues: Issue[] = [];
@@ -93,6 +95,15 @@ export function lint(plan: Plan, profiles: Record<string, Profile>): Issue[] {
 
   for (const [ref, loc] of idx) {
     if (loc.item.meta?.status === "sketch") info(`Sketch needs detail from the agent: ${"name" in loc.item ? loc.item.name : ref}`, ref);
+  }
+
+  // Readability: large plans are navigated by group (regions on the canvas, the group map).
+  const groupIds = new Set((plan.groups ?? []).map((g) => g.id));
+  for (const s of plan.surfaces) if (s.group && !groupIds.has(s.group)) err(`${s.name} is in missing group ${s.group}`, s.id);
+  if (plan.surfaces.length > GROUP_THRESHOLD) {
+    const loose = plan.surfaces.filter((s) => !s.group || !groupIds.has(s.group));
+    if (loose.length) warn(`${loose.length} of ${plan.surfaces.length} surfaces aren't in a group. Plans this size are read by group: give every surface one.`, loose[0].id);
+    for (const g of plan.groups ?? []) if (!g.description) info(`Group “${g.name}” has no description (one line on what this area is for)`, g.id);
   }
   return issues;
 }

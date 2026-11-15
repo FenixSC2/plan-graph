@@ -27,7 +27,9 @@ jobs:
         run: |
           node --experimental-strip-types scripts/plan.ts lint examples/link-shortener/plan.json
           node --experimental-strip-types scripts/plan.ts lint evals/implements-from-plan/files/plan-graph/plan.json
-      - name: Plan builder regenerates the eval fixture unchanged
+          node --experimental-strip-types scripts/plan.ts lint examples/team-workspace/plan.json
+      - name: Plan builder regenerates the eval fixture and examples unchanged
         run: |
           node --experimental-strip-types evals/implements-from-plan/fixture.build.ts
-          git diff --exit-code evals/implements-from-plan/files/plan-graph/plan.json
+          node --experimental-strip-types examples/team-workspace/plan.build.ts
+          git diff --exit-code evals/implements-from-plan/files/plan-graph/plan.json examples/team-workspace/plan.json

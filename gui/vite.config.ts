@@ -11,4 +11,5 @@ const profilesDir = path.resolve(repoRoot, process.env.PROFILES ?? "profiles");
 export default defineConfig({
   plugins: [react(), planApi({ planPath, profilesDir })],
   server: { port: Number(process.env.PORT ?? 5199), fs: { allow: [repoRoot] } },
+  preview: { port: Number(process.env.PORT ?? 5199) },
 });

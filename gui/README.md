@@ -14,6 +14,28 @@ PLAN=path/to/plan.json npm run dev           # any plan (path relative to the re
 
 `PROFILES` overrides the profiles directory (default `profiles/`), `PORT` the port.
 
+`npm run dev` is for working on the editor itself. Agents start it with `plan.ts serve`, which
+builds the production bundle (only when the sources changed) and serves that instead: React's
+development build is several times slower, which large plans feel.
+
+## Large plans
+
+- **Groups.** Surfaces in the same group are laid out together and drawn inside a labelled
+  region; the label stays readable at any zoom and zooms to the group when clicked.
+- **Group map.** Plans with more than 30 surfaces and at least 3 groups open on the group map:
+  one card per group (surfaces by platform, actions, outcomes, open decisions, issues, review
+  progress), arranged in flow order, with arrows counting the paths and calls between groups.
+  Click a card to open that group. The toolbar switches between the map and all surfaces.
+- **Map tab.** The sidebar lists groups and their surfaces with what still needs review.
+
+- Zoomed out below 55% on a plan with more than 30 surfaces, nodes draw as compact cards
+  (name, kind, action and outcome counts). Edges drop their labels, and edges between the same
+  two surfaces are drawn once. Zoom in to see and edit details.
+- Only the nodes in view are rendered (`onlyRenderVisibleElements`).
+- On a 91-surface, 668-outcome plan this took first render from 1.65 s to 0.42 s and the page
+  from about 7,600 DOM elements to about 3,100 (about 1,200 zoomed in), with 202 edge
+  elements instead of 373.
+
 ## What you can do
 
 - **Review**: the Review tab lists unreviewed items, high-impact decisions and sketches
@@ -62,6 +84,7 @@ superset (it's always the full diff from the last plan the agent wrote).
 | `src/model/lint.ts` | lint rules from `DESIGN.md` |
 | `src/store.ts` | state, undo, drafts, send / poll / rebase loop |
 | `src/graph/` | React Flow canvas, surface nodes, dagre layout |
+| `src/graph/groups.ts` | group membership, per-group stats, links between groups, grouped layout |
 | `src/ui/` | sidebar tabs, inspector, dialogs |
 | `scripts/model-test.ts` | `npm test`: diff → apply round-trip, revert, cascade checks |
 

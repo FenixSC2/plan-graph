@@ -13,7 +13,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { buildIndex, labelOf, surfaceOf, type Plan, type PlanIndex, type Ref } from "../gui/src/model/plan.ts";
 import { applyOps, type Changeset, type Op } from "../gui/src/model/diff.ts";
 import { lint, type Profile } from "../gui/src/model/lint.ts";
@@ -235,15 +235,40 @@ function done() {
   }
 }
 
+/** Newest modification time of the GUI sources (anything that changes the built bundle). */
+function newestSource(dir: string): number {
+  let newest = 0;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.name === "node_modules" || e.name === "dist" || e.name.startsWith(".")) continue;
+    const p = path.join(dir, e.name);
+    newest = Math.max(newest, e.isDirectory() ? newestSource(p) : fs.statSync(p).mtimeMs);
+  }
+  return newest;
+}
+
 function serve() {
-  const vite = path.join(SKILL_DIR, "gui/node_modules/vite/bin/vite.js");
-  if (!fs.existsSync(vite)) die(`GUI dependencies are missing. Run: npm install --prefix ${path.join(SKILL_DIR, "gui")}`);
+  const gui = path.join(SKILL_DIR, "gui");
+  const vite = path.join(gui, "node_modules/vite/bin/vite.js");
+  if (!fs.existsSync(vite)) die(`GUI dependencies are missing. Run: npm install --prefix ${gui}`);
   readPlan();
   const port = opt("port") ?? "5199";
-  const child = spawn(process.execPath, [vite, path.join(SKILL_DIR, "gui"), "--port", port, "--strictPort"], {
-    stdio: "inherit",
-    env: { ...process.env, PLAN: planPath, PORT: port },
-  });
+  const env = { ...process.env, PLAN: planPath, PORT: port };
+
+  // Serve the production build: React's development build is several times slower and
+  // renders everything twice, which large plans feel. Rebuild only when the sources changed.
+  const dist = path.join(gui, "dist");
+  const built = path.join(dist, "index.html");
+  if (!fs.existsSync(built) || fs.statSync(built).mtimeMs < newestSource(gui)) {
+    console.log("Building the review GUI…");
+    // Build into a private folder and swap it in, so two `serve`s starting at once never
+    // serve a half-written bundle.
+    const tmp = path.join(gui, `.dist-${process.pid}`);
+    const b = spawnSync(process.execPath, [vite, "build", gui, "--outDir", tmp, "--emptyOutDir", "--logLevel", "warn"], { stdio: "inherit", env });
+    if (b.status !== 0) { fs.rmSync(tmp, { recursive: true, force: true }); die("GUI build failed."); }
+    fs.rmSync(dist, { recursive: true, force: true });
+    try { fs.renameSync(tmp, dist); } catch { fs.rmSync(tmp, { recursive: true, force: true }); } // another serve won the race
+  }
+  const child = spawn(process.execPath, [vite, "preview", gui, "--port", port, "--strictPort"], { stdio: "inherit", env });
   child.on("exit", (code) => process.exit(code ?? 0));
 }
 

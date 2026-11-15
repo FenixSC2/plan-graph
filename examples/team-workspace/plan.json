@@ -1,0 +1,3338 @@
+{
+  "version": 1,
+  "project": {
+    "name": "Team Workspace",
+    "summary": "A small project tracker for teams: projects, a task board, invites, billing, and an admin CLI. Web app on a JSON API."
+  },
+  "mode": "forward",
+  "profiles": [
+    "web",
+    "api",
+    "cli"
+  ],
+  "entryPoints": [
+    "web.sign-in",
+    "web.sign-up",
+    "web.verify",
+    "cli.users",
+    "cli.suspend",
+    "cli.export",
+    "api.billing.webhook",
+    "web.admin-users"
+  ],
+  "groups": [
+    {
+      "id": "g.auth",
+      "name": "Auth",
+      "description": "Signing up, signing in, and getting back into an account",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "g.onboarding",
+      "name": "Onboarding",
+      "description": "First run: create a workspace and invite the team",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "g.projects",
+      "name": "Projects",
+      "description": "Listing, creating and configuring projects",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "g.tasks",
+      "name": "Task board",
+      "description": "The board where work happens: columns, tasks, comments",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "g.notifications",
+      "name": "Notifications",
+      "description": "In-app and email notifications about tasks",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "g.billing",
+      "name": "Billing",
+      "description": "Plans, checkout and the billing portal",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "g.admin",
+      "name": "Admin",
+      "description": "Staff tools: user management on the web and in the CLI",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "web.sign-in",
+      "profile": "web",
+      "kind": "page",
+      "name": "Sign in",
+      "address": "/sign-in",
+      "group": "g.auth",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "states": [
+        {
+          "id": "idle",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "submitting",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "elements": [
+        {
+          "id": "web.sign-in.email",
+          "kind": "input",
+          "label": "Email",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.sign-in.password",
+          "kind": "input",
+          "label": "Password",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "web.sign-up",
+      "profile": "web",
+      "kind": "page",
+      "name": "Sign up",
+      "address": "/sign-up",
+      "group": "g.auth",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "states": [
+        {
+          "id": "idle",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "submitting",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "web.reset",
+      "profile": "web",
+      "kind": "page",
+      "name": "Reset password",
+      "address": "/reset",
+      "group": "g.auth",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "states": [
+        {
+          "id": "idle",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "submitting",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "sent",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "web.verify",
+      "profile": "web",
+      "kind": "page",
+      "name": "Verify email",
+      "address": "/verify/:token",
+      "group": "g.auth",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "states": [
+        {
+          "id": "checking",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "expired",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "api.session",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Create session",
+      "address": "POST /api/session",
+      "group": "g.auth",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "api.signup",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Create account",
+      "address": "POST /api/users",
+      "group": "g.auth",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "api.reset",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Send reset email",
+      "address": "POST /api/password-resets",
+      "group": "g.auth",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.welcome",
+      "profile": "web",
+      "kind": "page",
+      "name": "Welcome",
+      "address": "/welcome",
+      "group": "g.onboarding",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.new-workspace",
+      "profile": "web",
+      "kind": "page",
+      "name": "Create workspace",
+      "address": "/welcome/workspace",
+      "group": "g.onboarding",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "states": [
+        {
+          "id": "idle",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "submitting",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "web.invite",
+      "profile": "web",
+      "kind": "page",
+      "name": "Invite your team",
+      "address": "/welcome/invite",
+      "group": "g.onboarding",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "states": [
+        {
+          "id": "idle",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "submitting",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "sent",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "api.workspaces.create",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Create workspace",
+      "address": "POST /api/workspaces",
+      "group": "g.onboarding",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "api.invites.create",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Send invites",
+      "address": "POST /api/invites",
+      "group": "g.onboarding",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.projects",
+      "profile": "web",
+      "kind": "page",
+      "name": "Projects",
+      "address": "/projects",
+      "group": "g.projects",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "states": [
+        {
+          "id": "loading",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "ready",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "empty",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "web.new-project",
+      "profile": "web",
+      "kind": "modal",
+      "name": "New project",
+      "group": "g.projects",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "states": [
+        {
+          "id": "idle",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "submitting",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "web.project-settings",
+      "profile": "web",
+      "kind": "page",
+      "name": "Project settings",
+      "address": "/projects/:id/settings",
+      "group": "g.projects",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "states": [
+        {
+          "id": "idle",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "submitting",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "web.delete-project",
+      "profile": "web",
+      "kind": "modal",
+      "name": "Delete project?",
+      "group": "g.projects",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      },
+      "states": [
+        {
+          "id": "idle",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "deleting",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "api.projects.list",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "List projects",
+      "address": "GET /api/projects",
+      "group": "g.projects",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "api.projects.create",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Create project",
+      "address": "POST /api/projects",
+      "group": "g.projects",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "api.projects.update",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Update project",
+      "address": "PATCH /api/projects/:id",
+      "group": "g.projects",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.projects.delete",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Delete project",
+      "address": "DELETE /api/projects/:id",
+      "group": "g.projects",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.board",
+      "profile": "web",
+      "kind": "page",
+      "name": "Board",
+      "address": "/projects/:id",
+      "group": "g.tasks",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      },
+      "states": [
+        {
+          "id": "loading",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "ready",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "empty",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "web.task",
+      "profile": "web",
+      "kind": "drawer",
+      "name": "Task",
+      "address": "/projects/:id/tasks/:task",
+      "group": "g.tasks",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      },
+      "states": [
+        {
+          "id": "loading",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "ready",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "empty",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "web.new-task",
+      "profile": "web",
+      "kind": "modal",
+      "name": "New task",
+      "group": "g.tasks",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      },
+      "states": [
+        {
+          "id": "idle",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "submitting",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "api.tasks.list",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "List tasks",
+      "address": "GET /api/projects/:id/tasks",
+      "group": "g.tasks",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.tasks.create",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Create task",
+      "address": "POST /api/projects/:id/tasks",
+      "group": "g.tasks",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.tasks.update",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Update task",
+      "address": "PATCH /api/tasks/:id",
+      "group": "g.tasks",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.comments.create",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Add comment",
+      "address": "POST /api/tasks/:id/comments",
+      "group": "g.tasks",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.notifications",
+      "profile": "web",
+      "kind": "page",
+      "name": "Notifications",
+      "address": "/notifications",
+      "group": "g.notifications",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      },
+      "states": [
+        {
+          "id": "loading",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "ready",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "empty",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "api.notifications.list",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "List notifications",
+      "address": "GET /api/notifications",
+      "group": "g.notifications",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.notifications.read",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Mark read",
+      "address": "POST /api/notifications/read",
+      "group": "g.notifications",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.email-digest",
+      "profile": "web",
+      "kind": "page",
+      "name": "Daily email digest",
+      "group": "g.notifications",
+      "meta": {
+        "origin": "user",
+        "status": "sketch",
+        "note": "A daily email summarising task changes. Agent: fill this in."
+      }
+    },
+    {
+      "id": "web.billing",
+      "profile": "web",
+      "kind": "page",
+      "name": "Billing",
+      "address": "/settings/billing",
+      "group": "g.billing",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      },
+      "states": [
+        {
+          "id": "loading",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "ready",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "empty",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "web.plans",
+      "profile": "web",
+      "kind": "page",
+      "name": "Choose a plan",
+      "address": "/settings/billing/plans",
+      "group": "g.billing",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.checkout-done",
+      "profile": "web",
+      "kind": "page",
+      "name": "Checkout complete",
+      "address": "/settings/billing/done",
+      "group": "g.billing",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      },
+      "states": [
+        {
+          "id": "confirming",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "active",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "pending",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "api.billing.summary",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Billing summary",
+      "address": "GET /api/billing",
+      "group": "g.billing",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.billing.checkout",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Start checkout",
+      "address": "POST /api/billing/checkout",
+      "group": "g.billing",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.billing.webhook",
+      "profile": "api",
+      "kind": "webhook",
+      "name": "Payment webhook",
+      "address": "POST /webhooks/payments",
+      "group": "g.billing",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.admin-users",
+      "profile": "web",
+      "kind": "page",
+      "name": "Admin: users",
+      "address": "/admin/users",
+      "group": "g.admin",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      },
+      "states": [
+        {
+          "id": "loading",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "ready",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "empty",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "error",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "api.admin.users",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Search users",
+      "address": "GET /api/admin/users?q=",
+      "group": "g.admin",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.admin.suspend",
+      "profile": "api",
+      "kind": "endpoint",
+      "name": "Suspend user",
+      "address": "POST /api/admin/users/:id/suspend",
+      "group": "g.admin",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "cli.users",
+      "profile": "cli",
+      "kind": "command",
+      "name": "tw users",
+      "address": "tw users <query> [--json]",
+      "group": "g.admin",
+      "terminal": true,
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "cli.suspend",
+      "profile": "cli",
+      "kind": "command",
+      "name": "tw suspend",
+      "address": "tw suspend <user-id> [--yes]",
+      "group": "g.admin",
+      "terminal": true,
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "cli.export",
+      "profile": "cli",
+      "kind": "command",
+      "name": "tw export",
+      "address": "tw export <workspace> > out.json",
+      "group": "g.admin",
+      "terminal": true,
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    }
+  ],
+  "interactions": [
+    {
+      "id": "api.session.request",
+      "from": "api.session",
+      "trigger": {
+        "kind": "request",
+        "description": "POST /api/session"
+      },
+      "outcomes": [
+        {
+          "id": "api.session.request.ok",
+          "when": "Email and password match",
+          "to": null,
+          "result": "200 { token }",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "api.session.request.invalid",
+          "when": "Wrong email or password",
+          "to": null,
+          "result": "401 { error: { code: \"bad_credentials\" } }",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "api.session.request.locked",
+          "when": "5 failures in 15 min",
+          "to": null,
+          "result": "429 with Retry-After",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "api.signup.request",
+      "from": "api.signup",
+      "trigger": {
+        "kind": "request",
+        "description": "POST /api/users"
+      },
+      "outcomes": [
+        {
+          "id": "api.signup.request.ok",
+          "when": "Email unused",
+          "to": null,
+          "result": "201 { user }",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "api.signup.request.taken",
+          "when": "Email already registered",
+          "to": null,
+          "result": "409 { error: { code: \"email_taken\" } }",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "api.signup.request.invalid",
+          "when": "Weak password or bad email",
+          "to": null,
+          "result": "400 { error: { field } }",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "api.reset.request",
+      "from": "api.reset",
+      "trigger": {
+        "kind": "request",
+        "description": "POST /api/password-resets"
+      },
+      "outcomes": [
+        {
+          "id": "api.reset.request.ok",
+          "when": "Always (no account enumeration)",
+          "to": null,
+          "result": "202",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "api.reset.request.limited",
+          "when": "More than 3 an hour",
+          "to": null,
+          "result": "429",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.sign-in.submit",
+      "from": "web.sign-in",
+      "trigger": {
+        "kind": "submit",
+        "description": "Click Sign in"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.session.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.sign-in.submit.ok",
+          "when": "API returns 2xx",
+          "to": "web.projects",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.sign-in.submit.invalid",
+          "when": "API returns 400",
+          "to": "web.sign-in#error",
+          "result": "“Email or password is wrong”",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.sign-in.submit.failed",
+          "when": "Network error or 5xx",
+          "to": "web.sign-in#error",
+          "result": "“Something went wrong, try again”",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.sign-in.to-reset",
+      "from": "web.sign-in",
+      "trigger": {
+        "kind": "click",
+        "description": "Forgot password?"
+      },
+      "outcomes": [
+        {
+          "id": "web.sign-in.to-reset.go",
+          "when": "always",
+          "to": "web.reset",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.sign-in.to-sign-up",
+      "from": "web.sign-in",
+      "trigger": {
+        "kind": "click",
+        "description": "Create an account"
+      },
+      "outcomes": [
+        {
+          "id": "web.sign-in.to-sign-up.go",
+          "when": "always",
+          "to": "web.sign-up",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.sign-up.submit",
+      "from": "web.sign-up",
+      "trigger": {
+        "kind": "submit",
+        "description": "Click Create account"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.signup.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.sign-up.submit.ok",
+          "when": "API returns 2xx",
+          "to": "web.verify",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.sign-up.submit.invalid",
+          "when": "API returns 400",
+          "to": "web.sign-up#error",
+          "result": "Field errors under each input",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.sign-up.submit.failed",
+          "when": "Network error or 5xx",
+          "to": "web.sign-up#error",
+          "result": "“Something went wrong, try again”",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.reset.submit",
+      "from": "web.reset",
+      "trigger": {
+        "kind": "submit",
+        "description": "Click Send link"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.reset.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.reset.submit.ok",
+          "when": "API returns 2xx",
+          "to": "web.reset#sent",
+          "result": "“Check your email”",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.reset.submit.invalid",
+          "when": "API returns 400",
+          "to": "web.reset#error",
+          "result": "“Enter a valid email”",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.reset.submit.failed",
+          "when": "Network error or 5xx",
+          "to": "web.reset#error",
+          "result": "“Something went wrong, try again”",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.verify.check",
+      "from": "web.verify",
+      "trigger": {
+        "kind": "on-enter",
+        "description": "Page opens with the token"
+      },
+      "outcomes": [
+        {
+          "id": "web.verify.check.ok",
+          "when": "Token valid",
+          "to": "web.welcome",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.verify.check.expired",
+          "when": "Token older than 24h",
+          "to": "web.verify#expired",
+          "result": "Offer to resend",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "api.workspaces.create.request",
+      "from": "api.workspaces.create",
+      "trigger": {
+        "kind": "request",
+        "description": "POST /api/workspaces"
+      },
+      "outcomes": [
+        {
+          "id": "api.workspaces.create.request.ok",
+          "when": "Name free",
+          "to": null,
+          "result": "201 { workspace }",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "api.workspaces.create.request.taken",
+          "when": "Slug in use",
+          "to": null,
+          "result": "409",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "api.invites.create.request",
+      "from": "api.invites.create",
+      "trigger": {
+        "kind": "request",
+        "description": "POST /api/invites"
+      },
+      "outcomes": [
+        {
+          "id": "api.invites.create.request.ok",
+          "when": "All emails valid",
+          "to": null,
+          "result": "202 { sent }",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "api.invites.create.request.invalid",
+          "when": "Any email invalid",
+          "to": null,
+          "result": "400 { error: { field: \"emails\" } }",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.welcome.start",
+      "from": "web.welcome",
+      "trigger": {
+        "kind": "click",
+        "description": "Get started"
+      },
+      "outcomes": [
+        {
+          "id": "web.welcome.start.go",
+          "when": "always",
+          "to": "web.new-workspace",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.new-workspace.submit",
+      "from": "web.new-workspace",
+      "trigger": {
+        "kind": "submit",
+        "description": "Click Create"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.workspaces.create.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.new-workspace.submit.ok",
+          "when": "API returns 2xx",
+          "to": "web.invite",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.new-workspace.submit.invalid",
+          "when": "API returns 400",
+          "to": "web.new-workspace#error",
+          "result": "“That name is taken”",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.new-workspace.submit.failed",
+          "when": "Network error or 5xx",
+          "to": "web.new-workspace#error",
+          "result": "“Something went wrong, try again”",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.invite.submit",
+      "from": "web.invite",
+      "trigger": {
+        "kind": "submit",
+        "description": "Click Send invites"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.invites.create.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.invite.submit.ok",
+          "when": "API returns 2xx",
+          "to": "web.projects",
+          "result": "Toast: “Invites sent”",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.invite.submit.invalid",
+          "when": "API returns 400",
+          "to": "web.invite#error",
+          "result": "Highlights the bad email",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.invite.submit.failed",
+          "when": "Network error or 5xx",
+          "to": "web.invite#error",
+          "result": "“Something went wrong, try again”",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.invite.skip",
+      "from": "web.invite",
+      "trigger": {
+        "kind": "click",
+        "description": "Skip for now"
+      },
+      "outcomes": [
+        {
+          "id": "web.invite.skip.go",
+          "when": "always",
+          "to": "web.projects",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "api.projects.list.request",
+      "from": "api.projects.list",
+      "trigger": {
+        "kind": "request",
+        "description": "GET /api/projects"
+      },
+      "outcomes": [
+        {
+          "id": "api.projects.list.request.ok",
+          "when": "Signed in",
+          "to": null,
+          "result": "200 { projects, nextCursor }",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "api.projects.list.request.unauth",
+          "when": "No session",
+          "to": null,
+          "result": "401",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "api.projects.create.request",
+      "from": "api.projects.create",
+      "trigger": {
+        "kind": "request",
+        "description": "POST /api/projects"
+      },
+      "outcomes": [
+        {
+          "id": "api.projects.create.request.ok",
+          "when": "Name valid",
+          "to": null,
+          "result": "201 { project }",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "api.projects.create.request.invalid",
+          "when": "Empty or > 80 chars",
+          "to": null,
+          "result": "400",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "api.projects.update.request",
+      "from": "api.projects.update",
+      "trigger": {
+        "kind": "request",
+        "description": "PATCH /api/projects/:id"
+      },
+      "outcomes": [
+        {
+          "id": "api.projects.update.request.ok",
+          "when": "Caller is an owner",
+          "to": null,
+          "result": "200 { project }",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.projects.update.request.forbidden",
+          "when": "Caller is a member",
+          "to": null,
+          "result": "403",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.projects.update.request.missing",
+          "when": "No such project",
+          "to": null,
+          "result": "404",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.projects.delete.request",
+      "from": "api.projects.delete",
+      "trigger": {
+        "kind": "request",
+        "description": "DELETE /api/projects/:id"
+      },
+      "outcomes": [
+        {
+          "id": "api.projects.delete.request.ok",
+          "when": "Caller is an owner",
+          "to": null,
+          "result": "204; tasks deleted after 30 days",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.projects.delete.request.forbidden",
+          "when": "Caller is a member",
+          "to": null,
+          "result": "403",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.projects.load",
+      "from": "web.projects",
+      "trigger": {
+        "kind": "on-enter",
+        "description": "Page opens"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.projects.list.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.projects.load.ready",
+          "when": "Has projects",
+          "to": "web.projects#ready",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.projects.load.empty",
+          "when": "No projects yet",
+          "to": "web.projects#empty",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.projects.load.error",
+          "when": "Request fails",
+          "to": "web.projects#error",
+          "result": "Inline error with Retry",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.projects.new",
+      "from": "web.projects",
+      "trigger": {
+        "kind": "click",
+        "description": "New project"
+      },
+      "outcomes": [
+        {
+          "id": "web.projects.new.go",
+          "when": "always",
+          "to": "web.new-project",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.projects.open",
+      "from": "web.projects",
+      "trigger": {
+        "kind": "click",
+        "description": "Click a project card"
+      },
+      "outcomes": [
+        {
+          "id": "web.projects.open.go",
+          "when": "always",
+          "to": "web.board",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.new-project.submit",
+      "from": "web.new-project",
+      "trigger": {
+        "kind": "submit",
+        "description": "Click Create"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.projects.create.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.new-project.submit.ok",
+          "when": "API returns 2xx",
+          "to": "web.board",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.new-project.submit.invalid",
+          "when": "API returns 400",
+          "to": "web.new-project#error",
+          "result": "“Give the project a name”",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        },
+        {
+          "id": "web.new-project.submit.failed",
+          "when": "Network error or 5xx",
+          "to": "web.new-project#error",
+          "result": "“Something went wrong, try again”",
+          "meta": {
+            "origin": "agent",
+            "status": "confirmed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "web.project-settings.save",
+      "from": "web.project-settings",
+      "trigger": {
+        "kind": "submit",
+        "description": "Click Save"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.projects.update.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.project-settings.save.ok",
+          "when": "API returns 2xx",
+          "to": "web.project-settings",
+          "result": "Toast: “Saved”",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.project-settings.save.invalid",
+          "when": "API returns 400",
+          "to": "web.project-settings#error",
+          "result": "Field error",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.project-settings.save.failed",
+          "when": "Network error or 5xx",
+          "to": "web.project-settings#error",
+          "result": "“Something went wrong, try again”",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.project-settings.delete",
+      "from": "web.project-settings",
+      "trigger": {
+        "kind": "click",
+        "description": "Delete project…"
+      },
+      "outcomes": [
+        {
+          "id": "web.project-settings.delete.go",
+          "when": "always",
+          "to": "web.delete-project",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.delete-project.confirm",
+      "from": "web.delete-project",
+      "trigger": {
+        "kind": "submit",
+        "description": "Type the name and click Delete"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.projects.delete.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.delete-project.confirm.ok",
+          "when": "API returns 2xx",
+          "to": "web.projects",
+          "result": "Toast with Undo for 10s",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.delete-project.confirm.invalid",
+          "when": "API returns 400",
+          "to": "web.delete-project#error",
+          "result": "“Only owners can delete”",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.delete-project.confirm.failed",
+          "when": "Network error or 5xx",
+          "to": "web.delete-project#error",
+          "result": "“Something went wrong, try again”",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.tasks.list.request",
+      "from": "api.tasks.list",
+      "trigger": {
+        "kind": "request",
+        "description": "GET /api/projects/:id/tasks"
+      },
+      "outcomes": [
+        {
+          "id": "api.tasks.list.request.ok",
+          "when": "Member of project",
+          "to": null,
+          "result": "200 { tasks }",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.tasks.list.request.forbidden",
+          "when": "Not a member",
+          "to": null,
+          "result": "403",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.tasks.create.request",
+      "from": "api.tasks.create",
+      "trigger": {
+        "kind": "request",
+        "description": "POST /api/projects/:id/tasks"
+      },
+      "outcomes": [
+        {
+          "id": "api.tasks.create.request.ok",
+          "when": "Title present",
+          "to": null,
+          "result": "201 { task }",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.tasks.create.request.invalid",
+          "when": "No title",
+          "to": null,
+          "result": "400",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.tasks.update.request",
+      "from": "api.tasks.update",
+      "trigger": {
+        "kind": "request",
+        "description": "PATCH /api/tasks/:id"
+      },
+      "outcomes": [
+        {
+          "id": "api.tasks.update.request.ok",
+          "when": "Valid change",
+          "to": null,
+          "result": "200 { task }",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.tasks.update.request.conflict",
+          "when": "Edited by someone else since load",
+          "to": null,
+          "result": "409 { current }",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.tasks.update.request.missing",
+          "when": "Task deleted",
+          "to": null,
+          "result": "404",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.comments.create.request",
+      "from": "api.comments.create",
+      "trigger": {
+        "kind": "request",
+        "description": "POST /api/tasks/:id/comments"
+      },
+      "outcomes": [
+        {
+          "id": "api.comments.create.request.ok",
+          "when": "Body present",
+          "to": null,
+          "result": "201 { comment }",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.comments.create.request.invalid",
+          "when": "Empty",
+          "to": null,
+          "result": "400",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.board.load",
+      "from": "web.board",
+      "trigger": {
+        "kind": "on-enter",
+        "description": "Page opens"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.tasks.list.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.board.load.ready",
+          "when": "Has tasks",
+          "to": "web.board#ready",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.board.load.empty",
+          "when": "No tasks yet",
+          "to": "web.board#empty",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.board.load.error",
+          "when": "Request fails",
+          "to": "web.board#error",
+          "result": "Inline error with Retry",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.board.new",
+      "from": "web.board",
+      "trigger": {
+        "kind": "click",
+        "description": "Add task"
+      },
+      "outcomes": [
+        {
+          "id": "web.board.new.go",
+          "when": "always",
+          "to": "web.new-task",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.board.open",
+      "from": "web.board",
+      "trigger": {
+        "kind": "click",
+        "description": "Click a task card"
+      },
+      "outcomes": [
+        {
+          "id": "web.board.open.go",
+          "when": "always",
+          "to": "web.task",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.board.settings",
+      "from": "web.board",
+      "trigger": {
+        "kind": "click",
+        "description": "Project settings"
+      },
+      "outcomes": [
+        {
+          "id": "web.board.settings.go",
+          "when": "always",
+          "to": "web.project-settings",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.board.drag",
+      "from": "web.board",
+      "trigger": {
+        "kind": "change",
+        "description": "Drag a card to another column"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.tasks.update.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.board.drag.ok",
+          "when": "API returns 200",
+          "to": "web.board#ready",
+          "result": "Card stays in the new column",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.board.drag.conflict",
+          "when": "API returns 409",
+          "to": "web.board#ready",
+          "result": "Card snaps back; toast “Someone else moved this”",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.new-task.submit",
+      "from": "web.new-task",
+      "trigger": {
+        "kind": "submit",
+        "description": "Click Add"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.tasks.create.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.new-task.submit.ok",
+          "when": "API returns 2xx",
+          "to": "web.board",
+          "result": "Card appears at the top of To do",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.new-task.submit.invalid",
+          "when": "API returns 400",
+          "to": "web.new-task#error",
+          "result": "“Give the task a title”",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.new-task.submit.failed",
+          "when": "Network error or 5xx",
+          "to": "web.new-task#error",
+          "result": "“Something went wrong, try again”",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.task.comment",
+      "from": "web.task",
+      "trigger": {
+        "kind": "submit",
+        "description": "Click Comment"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.comments.create.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.task.comment.ok",
+          "when": "API returns 2xx",
+          "to": "web.task#ready",
+          "result": "Comment appended",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.task.comment.invalid",
+          "when": "API returns 400",
+          "to": "web.task#error",
+          "result": "Nothing to send",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.task.comment.failed",
+          "when": "Network error or 5xx",
+          "to": "web.task#error",
+          "result": "“Something went wrong, try again”",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.task.close",
+      "from": "web.task",
+      "trigger": {
+        "kind": "click",
+        "description": "Close (Esc)"
+      },
+      "outcomes": [
+        {
+          "id": "web.task.close.go",
+          "when": "always",
+          "to": "web.board",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.notifications.list.request",
+      "from": "api.notifications.list",
+      "trigger": {
+        "kind": "request",
+        "description": "GET /api/notifications"
+      },
+      "outcomes": [
+        {
+          "id": "api.notifications.list.request.ok",
+          "when": "Signed in",
+          "to": null,
+          "result": "200 { items, unread }",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.notifications.list.request.unauth",
+          "when": "No session",
+          "to": null,
+          "result": "401",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.notifications.read.request",
+      "from": "api.notifications.read",
+      "trigger": {
+        "kind": "request",
+        "description": "POST /api/notifications/read"
+      },
+      "outcomes": [
+        {
+          "id": "api.notifications.read.request.ok",
+          "when": "Ids belong to caller",
+          "to": null,
+          "result": "204",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.notifications.read.request.invalid",
+          "when": "Unknown ids",
+          "to": null,
+          "result": "400",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.notifications.load",
+      "from": "web.notifications",
+      "trigger": {
+        "kind": "on-enter",
+        "description": "Page opens"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.notifications.list.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.notifications.load.ready",
+          "when": "Has notifications",
+          "to": "web.notifications#ready",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.notifications.load.empty",
+          "when": "No notifications yet",
+          "to": "web.notifications#empty",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.notifications.load.error",
+          "when": "Request fails",
+          "to": "web.notifications#error",
+          "result": "Inline error with Retry",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.notifications.mark",
+      "from": "web.notifications",
+      "trigger": {
+        "kind": "submit",
+        "description": "Mark all read"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.notifications.read.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.notifications.mark.ok",
+          "when": "API returns 2xx",
+          "to": "web.notifications#ready",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.notifications.mark.invalid",
+          "when": "API returns 400",
+          "to": "web.notifications#error",
+          "result": "Inline error",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.notifications.mark.failed",
+          "when": "Network error or 5xx",
+          "to": "web.notifications#error",
+          "result": "“Something went wrong, try again”",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.notifications.open",
+      "from": "web.notifications",
+      "trigger": {
+        "kind": "click",
+        "description": "Click a notification"
+      },
+      "outcomes": [
+        {
+          "id": "web.notifications.open.go",
+          "when": "always",
+          "to": "web.task",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.board.bell",
+      "from": "web.board",
+      "trigger": {
+        "kind": "click",
+        "description": "Bell icon"
+      },
+      "outcomes": [
+        {
+          "id": "web.board.bell.go",
+          "when": "always",
+          "to": "web.notifications",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.billing.summary.request",
+      "from": "api.billing.summary",
+      "trigger": {
+        "kind": "request",
+        "description": "GET /api/billing"
+      },
+      "outcomes": [
+        {
+          "id": "api.billing.summary.request.ok",
+          "when": "Caller is an owner",
+          "to": null,
+          "result": "200 { plan, seats, nextInvoice }",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.billing.summary.request.forbidden",
+          "when": "Not an owner",
+          "to": null,
+          "result": "403",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.billing.checkout.request",
+      "from": "api.billing.checkout",
+      "trigger": {
+        "kind": "request",
+        "description": "POST /api/billing/checkout"
+      },
+      "outcomes": [
+        {
+          "id": "api.billing.checkout.request.ok",
+          "when": "Plan exists",
+          "to": null,
+          "result": "303 to the payment provider",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.billing.checkout.request.invalid",
+          "when": "Unknown plan",
+          "to": null,
+          "result": "400",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.billing.webhook.request",
+      "from": "api.billing.webhook",
+      "trigger": {
+        "kind": "request",
+        "description": "POST /webhooks/payments"
+      },
+      "outcomes": [
+        {
+          "id": "api.billing.webhook.request.ok",
+          "when": "Signature valid",
+          "to": null,
+          "result": "200; plan updated",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.billing.webhook.request.bad-signature",
+          "when": "Signature invalid",
+          "to": null,
+          "result": "400; nothing changes",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.billing.load",
+      "from": "web.billing",
+      "trigger": {
+        "kind": "on-enter",
+        "description": "Page opens"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.billing.summary.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.billing.load.ready",
+          "when": "Has a paid plan",
+          "to": "web.billing#ready",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.billing.load.empty",
+          "when": "No a paid plan yet",
+          "to": "web.billing#empty",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.billing.load.error",
+          "when": "Request fails",
+          "to": "web.billing#error",
+          "result": "Inline error with Retry",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.billing.change",
+      "from": "web.billing",
+      "trigger": {
+        "kind": "click",
+        "description": "Change plan"
+      },
+      "outcomes": [
+        {
+          "id": "web.billing.change.go",
+          "when": "always",
+          "to": "web.plans",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.plans.choose",
+      "from": "web.plans",
+      "trigger": {
+        "kind": "click",
+        "description": "Choose a plan"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.billing.checkout.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.plans.choose.ok",
+          "when": "API returns 303",
+          "to": "web.checkout-done",
+          "result": "After paying, the provider redirects back",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.plans.choose.failed",
+          "when": "API error",
+          "to": "web.plans",
+          "result": "Toast: “Couldn't start checkout”",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.checkout-done.back",
+      "from": "web.checkout-done",
+      "trigger": {
+        "kind": "click",
+        "description": "Back to billing"
+      },
+      "outcomes": [
+        {
+          "id": "web.checkout-done.back.go",
+          "when": "always",
+          "to": "web.billing",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.admin.users.request",
+      "from": "api.admin.users",
+      "trigger": {
+        "kind": "request",
+        "description": "GET /api/admin/users?q="
+      },
+      "outcomes": [
+        {
+          "id": "api.admin.users.request.ok",
+          "when": "Caller is staff",
+          "to": null,
+          "result": "200 { users }",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.admin.users.request.forbidden",
+          "when": "Not staff",
+          "to": null,
+          "result": "404 (hidden)",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "api.admin.suspend.request",
+      "from": "api.admin.suspend",
+      "trigger": {
+        "kind": "request",
+        "description": "POST /api/admin/users/:id/suspend"
+      },
+      "outcomes": [
+        {
+          "id": "api.admin.suspend.request.ok",
+          "when": "Caller is staff",
+          "to": null,
+          "result": "204; sessions revoked",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "api.admin.suspend.request.missing",
+          "when": "No such user",
+          "to": null,
+          "result": "404",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.admin-users.load",
+      "from": "web.admin-users",
+      "trigger": {
+        "kind": "on-enter",
+        "description": "Page opens"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.admin.users.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.admin-users.load.ready",
+          "when": "Has users",
+          "to": "web.admin-users#ready",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.admin-users.load.empty",
+          "when": "No users yet",
+          "to": "web.admin-users#empty",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.admin-users.load.error",
+          "when": "Request fails",
+          "to": "web.admin-users#error",
+          "result": "Inline error with Retry",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "web.admin-users.suspend",
+      "from": "web.admin-users",
+      "trigger": {
+        "kind": "submit",
+        "description": "Click Suspend and confirm"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.admin.suspend.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "web.admin-users.suspend.ok",
+          "when": "API returns 2xx",
+          "to": "web.admin-users#ready",
+          "result": "Row shows Suspended",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.admin-users.suspend.invalid",
+          "when": "API returns 400",
+          "to": "web.admin-users#error",
+          "result": "Inline error",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "web.admin-users.suspend.failed",
+          "when": "Network error or 5xx",
+          "to": "web.admin-users#error",
+          "result": "“Something went wrong, try again”",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "cli.users.invoke",
+      "from": "cli.users",
+      "trigger": {
+        "kind": "invoke",
+        "description": "Run tw users <query> [--json]"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.admin.users.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "cli.users.invoke.ok",
+          "when": "API returns 200",
+          "to": null,
+          "result": "exit 0; table or JSON on stdout",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "cli.users.invoke.auth",
+          "when": "No TW_TOKEN",
+          "to": null,
+          "result": "exit 2; stderr: “set TW_TOKEN”",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "cli.users.invoke.failed",
+          "when": "API unreachable",
+          "to": null,
+          "result": "exit 3",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "cli.suspend.invoke",
+      "from": "cli.suspend",
+      "trigger": {
+        "kind": "invoke",
+        "description": "Run tw suspend <user-id> [--yes]"
+      },
+      "effects": [
+        {
+          "kind": "calls",
+          "target": "api.admin.suspend.request"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "cli.suspend.invoke.ok",
+          "when": "Confirmed and API returns 204",
+          "to": null,
+          "result": "exit 0",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "cli.suspend.invoke.aborted",
+          "when": "Answer no at the prompt",
+          "to": null,
+          "result": "exit 1; nothing changes",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "cli.suspend.invoke.missing",
+          "when": "API returns 404",
+          "to": null,
+          "result": "exit 1; stderr: “no such user”",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "cli.export.invoke",
+      "from": "cli.export",
+      "trigger": {
+        "kind": "invoke",
+        "description": "Run tw export <workspace> > out.json"
+      },
+      "outcomes": [
+        {
+          "id": "cli.export.invoke.ok",
+          "when": "Workspace exists",
+          "to": null,
+          "result": "exit 0; JSON on stdout",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        },
+        {
+          "id": "cli.export.invoke.missing",
+          "when": "No such workspace",
+          "to": null,
+          "result": "exit 1",
+          "meta": {
+            "origin": "agent",
+            "status": "proposed"
+          }
+        }
+      ],
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    }
+  ],
+  "decisions": [
+    {
+      "id": "d.auth",
+      "attachedTo": [],
+      "question": "How do users authenticate?",
+      "value": "Email + password, session token in an httpOnly cookie; staff flag for admin routes",
+      "alternatives": [
+        "Magic links only",
+        "SSO only"
+      ],
+      "rationale": "Simplest thing teams expect.",
+      "impact": "high",
+      "checklistKey": "auth",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "d.error-shape",
+      "attachedTo": [],
+      "question": "API error body shape?",
+      "value": "{ error: { code, message, field? } }",
+      "alternatives": [
+        "RFC 7807 problem+json"
+      ],
+      "rationale": "Field errors map straight onto inputs.",
+      "impact": "medium",
+      "checklistKey": "error-shape",
+      "meta": {
+        "origin": "agent",
+        "status": "confirmed"
+      }
+    },
+    {
+      "id": "d.delete-project",
+      "attachedTo": [
+        "web.delete-project"
+      ],
+      "question": "What happens to a deleted project's tasks?",
+      "value": "Soft-deleted; restorable for 30 days, then purged",
+      "alternatives": [
+        "Deleted immediately",
+        "Archived forever"
+      ],
+      "rationale": "Undo for mistakes without keeping data forever.",
+      "impact": "high",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "d.board-conflicts",
+      "attachedTo": [
+        "web.board.drag"
+      ],
+      "question": "Two people move the same card: who wins?",
+      "value": "First write wins; the second gets 409 and the card snaps back",
+      "alternatives": [
+        "Last write wins silently",
+        "Real-time sync so it can't happen"
+      ],
+      "rationale": "Never lose a move without telling someone.",
+      "impact": "high",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "d.pagination",
+      "attachedTo": [
+        "api.projects.list"
+      ],
+      "question": "How do list endpoints paginate?",
+      "value": "Cursor-based, 50 per page",
+      "alternatives": [
+        "Offset/limit"
+      ],
+      "rationale": "Stable under inserts.",
+      "impact": "medium",
+      "checklistKey": "pagination",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "d.seats",
+      "attachedTo": [
+        "web.billing"
+      ],
+      "question": "How are seats billed?",
+      "value": "Per active member per month, prorated",
+      "alternatives": [
+        "Flat per workspace"
+      ],
+      "rationale": "Matches how teams grow.",
+      "impact": "medium",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "d.admin-hidden",
+      "attachedTo": [
+        "api.admin.users"
+      ],
+      "question": "What do non-staff get from admin routes?",
+      "value": "404, as if they don't exist",
+      "alternatives": [
+        "403"
+      ],
+      "rationale": "Don't advertise admin routes.",
+      "impact": "low",
+      "meta": {
+        "origin": "agent",
+        "status": "proposed"
+      }
+    }
+  ]
+}

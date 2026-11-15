@@ -1,17 +1,17 @@
 ---
 name: plan-graph
 description: >-
-  Plan software as an explicit, reviewable graph before code is written: every page, screen,
-  modal, CLI command, API endpoint or bot command; every action on it and where each outcome
-  leads; and every assumption the agent would otherwise make silently, recorded as decisions
-  with alternatives. The user edits it in a local GUI and sends changes back; the plan then
-  drives the build and one test per outcome. Use it whenever the user wants to plan, spec or
-  design an app, CLI, API, bot, mobile app or sizeable feature before building it; asks what
-  every screen, button, route, command or endpoint does and where it goes; wants the assumptions
-  or edge cases behind a build written down for sign-off; or wants an existing project's routes,
-  pages or commands mapped or audited (dead routes, missing error handling, inconsistent
-  responses), even if they never say "graph" or "plan". Also use it when the user mentions the
-  plan graph, the graph editor, hitting Send, or a plan-graph/plan.json or changeset.json.
+  Plan or map software as a graph people can actually read: every page, screen, modal, CLI
+  command, API endpoint or bot command; every action on it and where each outcome leads; and every
+  assumption the agent would make silently, recorded as decisions with alternatives. A local GUI
+  shows it grouped by area, with a group map for big projects; the user edits it and sends changes
+  back, and the plan drives the build and one test per outcome. Use it whenever the user wants to
+  plan, spec or design an app, CLI, API, bot, mobile app or sizeable feature before building it;
+  asks what every screen, button, route, command or endpoint does and where it goes; wants
+  assumptions or edge cases written down for sign-off; or wants a large, complex or unfamiliar
+  codebase made easier to see and navigate, mapped or audited (dead routes, missing error
+  handling), even if they never say "graph" or "plan". Also use it when the user mentions the plan
+  graph, the graph editor, hitting Send, or a plan-graph/plan.json or changeset.json.
 ---
 
 # Plan Graph
@@ -99,6 +99,10 @@ Read `references/authoring.md` and the example plan first. Then:
    interaction) and by outcomes that cross over (an API redirect miss lands on a web page).
 2. **List every surface**, including the unglamorous ones: not-found pages, confirmation
    modals, error toasts, `--help` output, webhooks. Set `entryPoints`.
+   **Group them** once there are more than about 15: every surface in exactly one group,
+   one group per area a person would name ("Auth", "Checkout", "Admin API"), each with a
+   one-line `description`. Groups are how people read a big plan: the GUI draws them as
+   labelled regions and opens large plans on a group map. Aim for 5 to 12 groups.
 3. **Add interactions and outcomes.** Anything that can fail needs at least two outcomes;
    most need three or four (validation, conflict, network/server error, permission).
    Write `when` as a test precondition and `result` as what a test would assert.
@@ -131,7 +135,8 @@ Don't fix them.
    (`curl -s localhost:5199/api/status`). Leave it running between rounds.
 2. Tell the user it's at http://localhost:5199 and where to start. Name the three to six
    highest-impact proposed decisions in a sentence each, so they aren't facing 150 items
-   cold. Mention that they can click anything to edit it. They can drag arrows to
+   cold. On a large plan it opens on the group map: one card per group with what still
+   needs review. Point them to the group that matters most, and mention the Map tab. Mention that they can click anything to edit it. They can drag arrows to
    retarget them, add surfaces or actions (ticking "needs detail" when they want you to
    fill it in), leave a note on any item, and press **Send** when done.
 3. Wait for the send: run `pg wait <plan>` in the background, so you're notified when it
@@ -238,7 +243,8 @@ On large plans:
 - Use `pg outline` and targeted reads (`jq`, or `open(file).get(ref)`) instead of
   loading the whole JSON repeatedly.
 - Never hand-renumber or re-ID items.
-- Use `groups` to cluster related surfaces ("Auth", "Checkout", "admin commands").
+- Group every surface (see step 1.2). `pg lint` warns when a plan of more than 15
+  surfaces has ungrouped ones. Keep groups to areas of the product, not file layout.
 
 ## Adding a platform
 

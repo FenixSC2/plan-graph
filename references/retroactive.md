@@ -50,6 +50,11 @@ behavior that depends on configuration.
 Unhandled failures matter. If an endpoint has no error branch for a database failure,
 don't invent one; lint will flag the single outcome, and that is a finding.
 
+Group the surfaces as you go, by product area rather than by folder ("Auth", "Group
+settings", "Postgres RPCs"), each group with a one-line `description`. On an unfamiliar
+codebase the group map is often the first thing the user reads, so the groups are the
+table of contents.
+
 ## 3. Record implicit decisions
 
 This is the most valuable part of extraction. Go through each profile's

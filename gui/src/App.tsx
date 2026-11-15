@@ -3,6 +3,7 @@ import { ReactFlowProvider, useReactFlow } from "@xyflow/react";
 import { usePlanStore, type Store } from "./store.ts";
 import { Canvas } from "./graph/Canvas.tsx";
 import { autoLayout, surfaceFor, type XY } from "./graph/build.ts";
+import { clusters } from "./graph/groups.ts";
 import { Inspector } from "./ui/Inspector.tsx";
 import { Sidebar, type Tab } from "./ui/Sidebar.tsx";
 import { AddSurfaceDialog, DeleteDialog } from "./ui/Dialogs.tsx";
@@ -20,7 +21,8 @@ export function App() {
 
 /** Node positions: view state only (not part of the plan), persisted per plan file in localStorage. */
 function usePositions(store: Store) {
-  const key = store.loaded ? `plan-graph:pos:${store.loaded.planPath}` : null;
+  // v2: grouped auto-layout. Positions saved by older versions are laid out again once.
+  const key = store.loaded ? `plan-graph:pos:v2:${store.loaded.planPath}` : null;
   const [positions, setPositions] = useState<Record<string, XY> | null>(null);
 
   useEffect(() => {
@@ -60,6 +62,14 @@ function Workspace() {
   const [deleting, setDeleting] = useState<Ref | null>(null);
   const [adding, setAdding] = useState(false);
   const [positions, setPositions] = usePositions(store);
+  // Large grouped plans open on the group map, so people see the shape before the detail.
+  const [overview, setOverview] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (overview !== null || !store.plan) return;
+    const big = store.plan.surfaces.length > 30 && clusters(store.plan).filter((c) => c.id !== "__ungrouped").length >= 3;
+    setOverview(big);
+    if (big) setTab("map");
+  }, [overview, store.plan]);
   const canvasRef = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
   if (import.meta.env.DEV) (window as any).__rf = rf; // debugging handle
@@ -74,8 +84,19 @@ function Workspace() {
     select(ref);
     if (!ref) return;
     const sid = surfaceFor(store.index, ref);
-    if (sid) rf.fitView({ nodes: [{ id: sid }], duration: 350, maxZoom: 1.1, padding: 0.8 });
-  }, [select, store.index, rf]);
+    if (!sid) return;
+    if (overview) setOverview(false);
+    setTimeout(() => rf.fitView({ nodes: [{ id: sid }], duration: 350, maxZoom: 1.1, padding: 0.8 }), overview ? 60 : 0);
+  }, [select, store.index, rf, overview]);
+
+  /** Zoom to a whole group's surfaces (leaving the group map if it's showing). */
+  const openGroup = useCallback((gid: string) => {
+    const c = store.plan ? clusters(store.plan).find((x) => x.id === gid) : undefined;
+    if (!c) return;
+    setOverview(false);
+    // At least readable detail zoom: a big group is centred rather than squeezed into compact cards.
+    setTimeout(() => rf.fitView({ nodes: c.surfaces.map((id) => ({ id })), duration: 400, padding: 0.12, minZoom: 0.6, maxZoom: 1 }), 60);
+  }, [store.plan, rf]);
 
   // drop selection if the item disappears (undo, agent update)
   useEffect(() => {
@@ -133,10 +154,10 @@ function Workspace() {
     select(outcomeId);
   }, [store, select]);
 
-  const ui = useMemo(() => ({ selected, select, agentChanged: store.agentChanged, index: store.index }), [selected, select, store.agentChanged, store.index]);
+  const ui = useMemo(() => ({ selected, select, agentChanged: store.agentChanged, index: store.index, openGroup }), [selected, select, store.agentChanged, store.index, openGroup]);
 
   if (store.loadError) return <div className="fatal">Couldn't load the plan: {store.loadError}</div>;
-  if (!store.plan || !store.loaded || !positions) return <div className="fatal muted">Loading plan…</div>;
+  if (!store.plan || !store.loaded || !positions || overview === null) return <div className="fatal muted">Loading plan…</div>;
 
   const plan = store.plan;
   if (!mounted.current && plan.surfaces.every((s) => positions[s.id])) mounted.current = true;
@@ -156,8 +177,15 @@ function Workspace() {
             <button className="btn ghost" onClick={store.undo} disabled={!store.canUndo} title="Undo (⌘Z)">↶</button>
             <button className="btn ghost" onClick={store.redo} disabled={!store.canRedo} title="Redo (⇧⌘Z)">↷</button>
             <span className="divider" />
+            {clusters(plan).some((c) => c.id !== "__ungrouped") && (
+              <div className="seg view-toggle" title="Group map: one card per group. All surfaces: the full graph.">
+                <button className={overview ? "on" : ""} onClick={() => setOverview(true)}>Group map</button>
+                <button className={!overview ? "on" : ""} onClick={() => { setOverview(false); setTimeout(() => rf.fitView({ padding: 0.15, duration: 300 }), 60); }}>All surfaces</button>
+              </div>
+            )}
+            <span className="divider" />
             <button className="btn" onClick={() => setAdding(true)}>+ Surface</button>
-            <button className="btn ghost" onClick={() => { setPositions(autoLayout(plan)); setTimeout(() => rf.fitView({ padding: 0.15, duration: 300 }), 50); }}>Auto layout</button>
+            <button className="btn ghost" onClick={() => { setOverview(false); setPositions(autoLayout(plan)); setTimeout(() => rf.fitView({ padding: 0.15, duration: 300 }), 50); }}>Auto layout</button>
             <label className="check">
               <input type="checkbox" checked={showCalls} onChange={(e) => setShowCalls(e.target.checked)} /> Show calls
             </label>
@@ -175,7 +203,7 @@ function Workspace() {
           </div>
         </header>
 
-        <Sidebar store={store} tab={tab} setTab={setTab} selected={selected} select={selectAndFocus} />
+        <Sidebar store={store} tab={tab} setTab={setTab} selected={selected} select={selectAndFocus} openGroup={openGroup} />
 
         <main className="canvas" ref={canvasRef}>
           {store.banner && (
@@ -192,6 +220,8 @@ function Workspace() {
               showCalls={showCalls}
               onConnect={onConnect}
               onRetarget={onRetarget}
+              overview={overview}
+              issues={store.issues}
             />
           )}
         </main>

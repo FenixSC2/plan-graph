@@ -3,3 +3,4 @@ gui/dist/
 plan-graph-workspace/
 .DS_Store
 .playwright-mcp/
+gui/.dist-*/

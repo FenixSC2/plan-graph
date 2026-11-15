@@ -70,6 +70,8 @@ export interface Plan {
 export interface Group {
   id: Id;
   name: string;
+  /** One line on what this area of the app is for. Shown on the canvas and in the group map. */
+  description?: string;
   meta: Meta;
 }
 

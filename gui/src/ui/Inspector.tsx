@@ -40,7 +40,13 @@ export function Inspector({ store, selected, select, requestDelete }: Props) {
     case "interaction": body = <InteractionBody {...ctx} it={loc.item} />; break;
     case "outcome": body = <OutcomeBody {...ctx} o={loc.item} parent={loc.parent} />; break;
     case "decision": body = <DecisionBody {...ctx} d={loc.item} />; break;
-    case "group": body = <TextField label="Name" value={loc.item.name} onCommit={(v) => mutate((l) => { (l.item as any).name = v; })} />; break;
+    case "group": body = (
+      <>
+        <TextField label="Name" value={loc.item.name} onCommit={(v) => mutate((l) => { (l.item as any).name = v; })} />
+        <TextField label="Description" multiline value={loc.item.description ?? ""} placeholder="What this area of the app is for"
+          onCommit={(v) => mutate((l) => { (l.item as any).description = v || undefined; })} />
+      </>
+    ); break;
   }
 
   const meta = loc.item.meta;
