@@ -256,8 +256,8 @@ export class PlanBuilder {
   ): Proposal | null {
     if (!this.original || !this.file) throw new Error("propose: open the plan with open(file) first");
     const dir = path.dirname(path.resolve(this.file));
-    if (fs.existsSync(path.join(dir, "changeset.json"))) {
-      console.log("The user has sent changes you haven't applied. Run `plan.ts apply` and `done` first, then propose.");
+    if (fs.existsSync(path.join(dir, "changeset.json")) || fs.existsSync(path.join(dir, "changeset.applying.json"))) {
+      console.log("The user has sent changes you haven't finished applying. Run `plan.ts apply` and `done` first, then propose.");
       process.exitCode = 1;
       return null;
     }
@@ -301,7 +301,8 @@ export class PlanBuilder {
 
     const now = new Date();
     const proposal: Proposal = {
-      id: info.id ?? `p-${now.toISOString().replace(/[-:]/g, "").replace(/\..+/, "")}`,
+      // Millisecond time plus a random suffix: two proposals in the same second still differ.
+      id: info.id ?? `p-${now.toISOString().replace(/[-:.Z]/g, "")}-${crypto.randomBytes(2).toString("hex")}`,
       base: "sha256:" + crypto.createHash("sha256").update(this.original.text).digest("hex"),
       createdAt: now.toISOString(),
       title: info.title,

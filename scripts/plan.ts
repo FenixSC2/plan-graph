@@ -226,7 +226,12 @@ async function wait() {
 function proposal() {
   const p = readProposal();
   if (!p) return console.log("No pending proposal.");
-  if (flag("withdraw")) { fs.unlinkSync(proposalPath); return console.log(`Withdrew “${p.title}”. The GUI drops it within a couple of seconds.`); }
+  if (flag("withdraw")) {
+    // Don't pull a proposal the user has already answered: apply/show need it to describe the ops.
+    if (readChangeset()?.proposal?.id === p.id) die(`The user has already answered “${p.title}”. Run \`plan.ts apply\` (it removes the proposal) instead of withdrawing.`);
+    fs.unlinkSync(proposalPath);
+    return console.log(`Withdrew “${p.title}”. The GUI drops it within a couple of seconds.`);
+  }
   const plan = readPlan();
   const idx = buildIndex(plan);
   const current = hashOf(readText());

@@ -244,6 +244,8 @@ export function Canvas({ plan, positions, onMoved, showCalls, onConnect, onRetar
       minZoom={MIN_ZOOM}
       maxZoom={MAX_ZOOM}
       zoomOnScroll={false}
+      // ⌘/Ctrl-scroll zoom goes through smoothWheel too; don't let React Flow's own zoom take it.
+      zoomActivationKeyCode={null}
       zoomOnPinch={false}
       panOnScroll={false}
       zoomOnDoubleClick={false}

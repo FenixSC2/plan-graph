@@ -40,9 +40,11 @@ const markAll = (item: any, status: "confirmed") => {
 };
 
 /**
- * Apply some of a proposal's ops to a plan. Removals cascade (like deleting in the GUI), so a
- * partial accept never leaves dangling refs. With `confirm`, every item the accepted ops add or
- * change is marked confirmed: accepting a proposal is the user approving those values.
+ * Apply some of a proposal's ops to a plan. Removals cascade (like deleting in the GUI); a remove
+ * whose target an earlier removal already took out counts as applied, not failed. Pick `include`
+ * with `toggleOp` so ops that depend on each other are accepted together (otherwise a partial
+ * accept can leave refs to items that were never added). With `confirm`, every item the accepted
+ * ops add or change is marked confirmed: accepting a proposal is the user approving those values.
  * With `keepRemovals`, remove ops are skipped (the preview shows removed items struck through).
  */
 export function applyProposal(
@@ -52,6 +54,7 @@ export function applyProposal(
   opts: { confirm?: boolean; keepRemovals?: boolean } = {},
 ): { plan: Plan; failed: number[] } {
   const p = clone(plan);
+  const before = buildIndex(plan);
   const failed: number[] = [];
   const want = new Set(include);
   ops.forEach((op, i) => {
@@ -68,7 +71,9 @@ export function applyProposal(
         if (!idx.has(op.ref)) failed.push(i);
         break;
       case "remove":
-        if (!idx.has(op.ref)) { failed.push(i); break; }
+        // Gone already: either an earlier removal in this proposal cascaded it (fine), or it
+        // was never there (the op no longer applies).
+        if (!idx.has(op.ref)) { if (!before.has(op.ref)) failed.push(i); break; }
         if (!opts.keepRemovals) deleteWithCascade(p, op.ref);
         break;
       case "update": {
@@ -92,6 +97,84 @@ export function applyProposal(
     }
   });
   return { plan: p, failed };
+}
+
+/**
+ * Which ops each op needs: `requires.get(i)` holds the ops that must be accepted for op i to make
+ * sense. An op needs the add ops that introduce the refs it uses (an interaction on a surface
+ * the proposal adds, an outcome leading to it), and a removal needs the removals its cascade
+ * implies (removing a surface takes its actions and the outcomes into it with it).
+ */
+export function proposalRequires(plan: Plan, ops: Op[]): Map<number, Set<number>> {
+  const requires = new Map<number, Set<number>>();
+  const need = (i: number, j: number) => { if (i !== j) (requires.get(i) ?? requires.set(i, new Set()).get(i)!).add(j); };
+
+  // Refs introduced by each add op.
+  const introducedBy = new Map<Ref, number>();
+  ops.forEach((op, j) => { if (op.op === "add") for (const r of addedRefs(op)) introducedBy.set(r, j); });
+  const strings = (x: unknown, out: string[] = []): string[] => {
+    if (typeof x === "string") out.push(x);
+    else if (Array.isArray(x)) for (const v of x) strings(v, out);
+    else if (x && typeof x === "object") for (const [k, v] of Object.entries(x)) if (k !== "meta" && k !== "note") strings(v, out);
+    return out;
+  };
+  ops.forEach((op, i) => {
+    if (op.op !== "add" && op.op !== "update") return;
+    const own = new Set(op.op === "add" ? addedRefs(op) : []);
+    for (const s of strings(op.op === "add" ? { parent: "parent" in op ? op.parent : undefined, value: op.value } : op.set)) {
+      for (const r of [s, surfaceOf(s)]) {
+        const j = introducedBy.get(r);
+        if (j !== undefined && !own.has(r)) need(i, j);
+      }
+    }
+  });
+
+  // Removals implied by each removal's cascade.
+  const removes = ops.map((op, j) => (op.op === "remove" ? { j, ref: op.ref } : null)).filter((x): x is { j: number; ref: Ref } => !!x);
+  if (removes.length > 1) {
+    const idx = buildIndex(plan);
+    for (const { j: i, ref } of removes) {
+      if (!idx.has(ref)) continue;
+      const after = clone(plan);
+      deleteWithCascade(after, ref);
+      const left = buildIndex(after);
+      for (const r of removes) if (r.j !== i && idx.has(r.ref) && !left.has(r.ref)) need(i, r.j);
+    }
+  }
+  return requires;
+}
+
+/**
+ * Tick or untick op `i`, keeping dependencies consistent: ticking also ticks what it needs;
+ * unticking also unticks whatever needs it.
+ */
+export function toggleOp(included: number[], i: number, requires: Map<number, Set<number>>): number[] {
+  const set = new Set(included);
+  if (set.has(i)) {
+    const stack = [i];
+    while (stack.length) {
+      const k = stack.pop()!;
+      if (!set.delete(k)) continue;
+      for (const [a, reqs] of requires) if (reqs.has(k) && set.has(a)) stack.push(a);
+    }
+  } else {
+    const stack = [i];
+    while (stack.length) {
+      const k = stack.pop()!;
+      if (set.has(k)) continue;
+      set.add(k);
+      for (const r of requires.get(k) ?? []) stack.push(r);
+    }
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
+/** A short fingerprint of a proposal's content, so a revised proposal that reuses an id is still seen as new. */
+export function proposalSig(p: Pick<Proposal, "title" | "ops" | "questions">): string {
+  const s = JSON.stringify([p.title, p.ops, p.questions ?? []]);
+  let h = 5381;
+  for (let k = 0; k < s.length; k++) h = ((h << 5) + h + s.charCodeAt(k)) | 0;
+  return `${s.length.toString(36)}-${(h >>> 0).toString(36)}`;
 }
 
 /** What each item in the preview is: added, changed or removed by the proposal. */

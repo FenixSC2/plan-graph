@@ -81,3 +81,37 @@ console.log(`OK — ${changes.length} changes, ${cs.ops.length} ops`);
   assert.deepEqual(resp.answers, { q: "yes" }, "blank answers are dropped, others trimmed");
   console.log(`OK — proposal: ${ops.length} ops, ${impacts.length} decision impacts`);
 }
+
+// ── proposals: cascaded removals apply; dependent ops tick and untick together ──
+{
+  const { applyProposal, proposalRequires, toggleOp } = await import("../src/model/proposal.ts");
+  const lintErrors = (p: any) => lint(p, profiles).filter((i) => i.severity === "error").length;
+
+  // Removing a surface: the diff also lists its actions and inbound outcomes as removals.
+  const gone = clone(base);
+  deleteWithCascade(gone, "web.stats");
+  const removeOps = toChangeset(diffPlans(base, gone), "").ops;
+  assert.ok(removeOps.length > 1, "removing a surface lists its fallout as separate removals");
+  const all = removeOps.map((_, i) => i);
+  assert.deepEqual(applyProposal(base, removeOps, all).failed, [], "removals an earlier cascade already made count as applied");
+  const reqR = proposalRequires(base, removeOps);
+  const surf = removeOps.findIndex((o) => o.op === "remove" && o.ref === "web.stats");
+  const implied = [...(reqR.get(surf) ?? [])];
+  assert.ok(implied.length > 0, "the surface removal implies its cascaded removals");
+  const child = implied[0];
+  assert.ok(!toggleOp(all, child, reqR).includes(surf), "unticking a cascaded removal unticks the removal that implies it");
+
+  // Adding a surface plus things that point at it.
+  const added = clone(base);
+  added.surfaces.push({ id: "web.settings", profile: "web", kind: "page", name: "Settings", meta: { origin: "agent", status: "proposed" } });
+  added.interactions.push({ id: "web.settings.back", from: "web.settings", trigger: { kind: "click", description: "Back" },
+    outcomes: [{ id: "web.settings.back.go", when: "always", to: "web.home", meta: { origin: "agent", status: "proposed" } }], meta: { origin: "agent", status: "proposed" } });
+  const addOps = toChangeset(diffPlans(base, added), "").ops;
+  const reqA = proposalRequires(base, addOps);
+  const addSurf = addOps.findIndex((o) => o.op === "add" && o.kind === "surface");
+  const without = toggleOp(addOps.map((_, i) => i), addSurf, reqA);
+  assert.equal(lintErrors(applyProposal(base, addOps, without).plan), 0, "unticking an added surface unticks what depends on it: no dangling refs");
+  const dependent = addOps.findIndex((_, i) => i !== addSurf);
+  assert.ok(toggleOp([], dependent, reqA).includes(addSurf), "ticking an op ticks what it needs");
+  console.log(`OK — proposal dependencies: ${removeOps.length} cascaded removals, ${addOps.length} dependent adds`);
+}
