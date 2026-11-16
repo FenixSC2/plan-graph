@@ -396,6 +396,8 @@ function ProjectPanel({ store }: { store: Store }) {
 
       <h4 className="subhead">How to edit</h4>
       <ul className="howto">
+        <li>Scroll to pan; pinch or ⌘-scroll to zoom.</li>
+        <li>Select an arrow or surface to trace where it comes from and leads to. <b>]</b> follows the selected arrow, <b>[</b> goes back.</li>
         <li>Click anything to inspect and edit it. Editing an item marks it reviewed.</li>
         <li>Drag an arrow's head onto another surface to change where it goes.</li>
         <li>Drag from a row's handle to add an outcome, or from “drag to connect” to add an interaction.</li>

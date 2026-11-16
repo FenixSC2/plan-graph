@@ -38,6 +38,12 @@ development build is several times slower, which large plans feel.
 
 ## What you can do
 
+- **Navigate**: scroll or swipe to pan, pinch or ⌘/Ctrl-scroll to zoom (both eased; reduced
+  motion is respected). Double-click doesn't zoom.
+- **Trace**: select an arrow for a trace bar (source ⟵ condition ⟶ destination; click an end to
+  glide there), or a surface to list everything leading in and out, with unrelated edges dimmed.
+  `]` follows the selected arrow, `[` walks back along the trail; double-click an arrow to
+  follow it.
 - **Review**: the Review tab lists unreviewed items, high-impact decisions and sketches
   first. Confirm items one at a time; editing an item also marks it reviewed.
 - **Edit**: click any surface, state, element, interaction row, outcome, arrow or decision
@@ -53,6 +59,9 @@ development build is several times slower, which large plans feel.
   items with a note are sent as `comment` ops ("should stats be private?").
 - **Send**: everything collects in the Changes tab (each change can be reverted
   individually). Undo/redo with ⌘Z / ⇧⌘Z. Unsent work survives reloads.
+- **Proposals**: when the agent proposes a change, the Proposal tab shows it with a preview on
+  the graph. Changes that depend on each other tick and untick together; undoing an accept
+  reopens the proposal.
 
 ## Agent protocol (file-based)
 

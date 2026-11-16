@@ -123,6 +123,11 @@ A session goes like this:
    one test per outcome. If the build forces a change, it updates the plan instead of letting the
    code drift.
 
+**Getting around.** Scroll or swipe to pan; pinch or ⌘/Ctrl-scroll to zoom. Select an arrow to see
+where it starts, under what condition, and where it leads; click either end to glide there, or
+press `]` to follow it and `[` to step back along your trail. Select a surface to list every
+path into it and out of it, with everything else dimmed. Double-click an arrow to follow it.
+
 **Asking for changes in chat works too.** Say "drop custom aliases" or "add team invites", and
 the agent loads the change into the editor as a **proposal**: previewed on the graph, with the
 decisions it changes, the ones it puts in question, and anything it needs you to answer. Tick the

@@ -1,17 +1,17 @@
 ---
 name: plan-graph
 description: >-
-  Plan or map software as a graph people can actually read: every page, screen, modal, CLI
-  command, API endpoint or bot command; every action on it and where each outcome leads; and every
-  assumption the agent would make silently, recorded as decisions with alternatives. A local GUI
-  shows it grouped by area, with a group map for big projects; the user edits it and sends changes
-  back, and the plan drives the build and one test per outcome. Use it whenever the user wants to
-  plan, spec or design an app, CLI, API, bot, mobile app or sizeable feature before building it;
-  asks what every screen, button, route, command or endpoint does and where it goes; wants
-  assumptions or edge cases written down for sign-off; or wants a large, complex or unfamiliar
-  codebase made easier to see and navigate, mapped or audited (dead routes, missing error
-  handling), even if they never say "graph" or "plan". Also use it when the user mentions the plan
-  graph, the graph editor, hitting Send, or a plan-graph/plan.json, changeset.json or proposal.json.
+  Plan or map software as a graph people can read: every page, screen, modal, CLI command, API
+  endpoint or bot command; every action on it and where each outcome leads; and every assumption
+  the agent would make silently, recorded as decisions with alternatives. A local GUI shows it
+  grouped by area, with a group map for big projects; the user edits it and sends changes back,
+  and the plan drives the build and one test per outcome. Use it whenever the user wants to plan,
+  spec or design an app, CLI, API, bot, mobile app or sizeable feature before building it; asks
+  what every screen, button, route, command or endpoint does and where it goes; wants assumptions
+  or edge cases written down for sign-off; or wants a large, complex or unfamiliar codebase made
+  easy to see and navigate, mapped or audited (dead routes, missing error handling), even if they
+  never say "graph" or "plan". Also use it when the user mentions the plan graph, the graph
+  editor, hitting Send, or a plan-graph/plan.json, changeset.json or proposal.json.
 ---
 
 # Plan Graph
