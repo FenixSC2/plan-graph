@@ -8,6 +8,7 @@ import { SurfaceNode } from "./SurfaceNode.tsx";
 import { GroupCard, RegionLabel, RegionNode, groupHue, type GroupData } from "./GroupNodes.tsx";
 import { REGION_HEAD, REGION_PAD, UNGROUPED, clusterLinks, clusterStats, clusters, flowOrder } from "./groups.ts";
 import { CompactContext, UIContext } from "../ui/context.ts";
+import { useSmoothWheel } from "./smoothWheel.ts";
 import type { Plan } from "../model/plan.ts";
 import type { Issue } from "../model/lint.ts";
 
@@ -20,6 +21,7 @@ const CARD_W = 300, CARD_H = 190;
  */
 const DETAIL_ZOOM = 0.55;
 const LARGE_PLAN_SURFACES = 30;
+const MIN_ZOOM = 0.04, MAX_ZOOM = 1.75;
 
 interface Props {
   plan: Plan;
@@ -64,7 +66,20 @@ export function Canvas({ plan, positions, onMoved, showCalls, onConnect, onRetar
   // Selector returns a boolean, so this re-renders only when the zoom crosses the threshold.
   const zoomedOut = useStore((s) => s.transform[2] < DETAIL_ZOOM);
   const compact = zoomedOut && plan.surfaces.length > LARGE_PLAN_SURFACES;
-  const edges = useMemo(() => buildEdges(plan, ui.index, ui.selected, showCalls, !compact), [plan, ui.index, ui.selected, showCalls, compact]);
+  // The surface in focus (selected, or containing the selected state/element): its edges stand out, the rest dim.
+  const focus = useMemo(() => {
+    const loc = ui.selected ? ui.index.get(ui.selected) : undefined;
+    if (!loc) return undefined;
+    if (loc.type === "surface") return loc.item.id;
+    if (loc.type === "state" || loc.type === "element") return loc.parent.id;
+    return undefined;
+  }, [ui.selected, ui.index]);
+  const tracing = !!focus || ui.index.get(ui.selected ?? "")?.type === "outcome" || ui.index.get(ui.selected ?? "")?.type === "interaction";
+  const edges = useMemo(() => buildEdges(plan, ui.index, ui.selected, showCalls, !compact, ui.marks, focus), [plan, ui.index, ui.selected, showCalls, compact, ui.marks, focus]);
+
+  // Wheel and trackpad: scroll pans, pinch / ⌘-scroll zooms, both eased (see smoothWheel.ts).
+  const [wrapper, setWrapper] = useState<HTMLDivElement | null>(null);
+  useSmoothWheel(wrapper, rf, { minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM });
 
   const onNodesChange = useCallback((changes: NodeChange<Node>[]) => {
     // Region and group-map nodes are derived; only surface nodes carry state.
@@ -200,6 +215,8 @@ export function Canvas({ plan, positions, onMoved, showCalls, onConnect, onRetar
   return (
     <CompactContext.Provider value={compact}>
     <ReactFlow<Node, Edge>
+      ref={setWrapper}
+      className={tracing && !map ? "is-tracing" : undefined}
       nodes={map ? map.cards : [...regions, ...nodes]}
       edges={map ? map.links : edges}
       nodeTypes={nodeTypes}
@@ -215,14 +232,25 @@ export function Canvas({ plan, positions, onMoved, showCalls, onConnect, onRetar
         const d = edge.data as EdgeData | undefined;
         if (d) ui.select(d.kind === "outcome" ? d.outcomeId! : d.interactionId);
       }}
+      onEdgeDoubleClick={(_e, edge) => {
+        // Follow the arrow: glide to where it lands.
+        const d = edge.data as EdgeData | undefined;
+        if (d) ui.follow?.(d.kind === "outcome" ? d.outcomeId! : edge.target);
+      }}
       onPaneClick={() => ui.select(null)}
       deleteKeyCode={null}
       selectionKeyCode={null}
       multiSelectionKeyCode={null}
-      minZoom={0.04}
-      maxZoom={1.75}
+      minZoom={MIN_ZOOM}
+      maxZoom={MAX_ZOOM}
+      zoomOnScroll={false}
+      zoomOnPinch={false}
+      panOnScroll={false}
+      zoomOnDoubleClick={false}
       colorMode="system"
-      onlyRenderVisibleElements
+      // Culling off-screen nodes saves work on big plans, but on smaller ones it only adds
+      // mount/unmount hitches while panning.
+      onlyRenderVisibleElements={plan.surfaces.length > LARGE_PLAN_SURFACES}
     >
       <Background gap={20} size={1} />
       <Controls showInteractive={false} />

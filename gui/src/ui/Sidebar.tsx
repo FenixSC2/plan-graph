@@ -6,8 +6,9 @@ import { ImpactBadge, StatusBadge } from "./fields.tsx";
 import { clusterStats, clusters, type Cluster, type ClusterStats } from "../graph/groups.ts";
 import { groupHue } from "../graph/GroupNodes.tsx";
 import { surfaceOf } from "../model/plan.ts";
+import { ProposalTab } from "./ProposalTab.tsx";
 
-export type Tab = "map" | "review" | "decisions" | "issues" | "changes";
+export type Tab = "proposal" | "map" | "review" | "decisions" | "issues" | "changes";
 
 interface Props {
   store: Store;
@@ -25,6 +26,7 @@ export function Sidebar({ store, tab, setTab, selected, select, openGroup }: Pro
   const review = useMemo(() => reviewItems(store.index), [store.index]);
   const groupCount = useMemo(() => (store.plan ? clusters(store.plan).length : 0), [store.plan]);
   const counts = {
+    proposal: store.proposal ? store.proposal.ops.length || (store.proposal.questions?.length ?? 0) : 0,
     map: groupCount,
     review: review.length,
     decisions: store.plan?.decisions.length ?? 0,
@@ -34,14 +36,15 @@ export function Sidebar({ store, tab, setTab, selected, select, openGroup }: Pro
   return (
     <aside className="sidebar">
       <nav className="tabs">
-        {(["map", "review", "decisions", "issues", "changes"] as Tab[]).map((t) => (
-          <button key={t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>
+        {(["proposal", "map", "review", "decisions", "issues", "changes"] as Tab[]).filter((t) => t !== "proposal" || store.proposal).map((t) => (
+          <button key={t} className={`${tab === t ? "active" : ""}${t === "proposal" ? " tab-proposal" : ""}`} onClick={() => setTab(t)}>
             {t[0].toUpperCase() + t.slice(1)}
-            {counts[t] > 0 && <span className={`count${t === "issues" && store.blocking.length ? " count-error" : ""}`}>{counts[t]}</span>}
+            {counts[t] > 0 && <span className={`count${t === "issues" && store.blocking.length ? " count-error" : ""}${t === "proposal" && store.proposalOpen ? " count-proposal" : ""}`}>{counts[t]}</span>}
           </button>
         ))}
       </nav>
       <div className="tab-body">
+        {tab === "proposal" && <ProposalTab store={store} select={select} />}
         {tab === "map" && <MapTab store={store} selected={selected} select={select} openGroup={openGroup} />}
         {tab === "review" && <ReviewTab store={store} items={review} selected={selected} select={select} />}
         {tab === "decisions" && <DecisionsTab store={store} selected={selected} select={select} />}

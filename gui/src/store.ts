@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildIndex, clone, type Plan, type PlanIndex, type Ref } from "./model/plan.ts";
 import { applyOps, changedRefs, diffPlans, toChangeset, type Change, type Changeset } from "./model/diff.ts";
 import { lint, type Issue, type Profile } from "./model/lint.ts";
+import { applyProposal, decisionImpacts, makeResponse, proposalMarks, type Proposal } from "./model/proposal.ts";
 
 interface Loaded {
   base: Plan;
@@ -29,6 +30,25 @@ interface Draft {
   globalNote?: string;
 }
 const draftKey = (planPath: string) => `plan-graph:draft:${planPath}`;
+
+/** The user's in-progress answer to the agent's proposal. */
+export interface ProposalUI {
+  id: string;
+  /** Op indices ticked for acceptance (all, initially). */
+  included: number[];
+  answers: Record<string, string>;
+  reply: string;
+  /** Set once the user accepts (some or none of) the ops: the indices that were applied. */
+  accepted: number[] | null;
+}
+const proposalKey = (planPath: string) => `plan-graph:proposal:${planPath}`;
+function readProposalUI(planPath: string, p: Proposal): ProposalUI {
+  const fresh: ProposalUI = { id: p.id, included: p.ops.map((_, i) => i), answers: {}, reply: "", accepted: null };
+  try {
+    const s = JSON.parse(localStorage.getItem(proposalKey(planPath)) ?? "null");
+    return s?.id === p.id ? { ...fresh, ...s } : fresh;
+  } catch { return fresh; }
+}
 function readDraft(planPath: string): Draft | null {
   try { return JSON.parse(localStorage.getItem(draftKey(planPath)) ?? "null"); } catch { return null; }
 }
@@ -49,9 +69,14 @@ export function usePlanStore() {
   const [agentChanged, setAgentChanged] = useState<Set<Ref>>(new Set());
   const [banner, setBanner] = useState<Banner>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [pui, setPui] = useState<ProposalUI | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  /** Plan before / after the last accept, so "Undo accept" can step back cleanly. */
+  const acceptSnap = useRef<{ before: Plan; after: Plan } | null>(null);
 
-  const latest = useRef({ loaded, hist, sent, notes });
-  latest.current = { loaded, hist, sent, notes };
+  const latest = useRef({ loaded, hist, sent, notes, proposal, pui });
+  latest.current = { loaded, hist, sent, notes, proposal, pui };
 
   const fetchPlan = useCallback(async () => {
     const r = await fetch("/api/plan");
@@ -80,9 +105,28 @@ export function usePlanStore() {
         }
         setLoaded({ base: d.plan, hash: d.hash, profiles: d.profiles, planPath: d.planPath });
         setHist({ past: [], present, future: [] });
+        return loadProposal(d.planPath, true);
       })
       .catch((e) => setLoadError(String(e)));
   }, [fetchPlan]);
+
+  /** Fetch proposal.json (or its absence) and reset the review state when it's a new one. */
+  const loadProposal = useCallback(async (planPath: string, initial = false) => {
+    const r = await fetch("/api/proposal");
+    const { proposal: p } = (await r.json()) as { proposal: Proposal | null };
+    if (!p || !Array.isArray(p.ops)) {
+      setProposal(null); setPui(null); setPreviewing(false);
+      return;
+    }
+    if (latest.current.proposal?.id === p.id) return;
+    const ui = readProposalUI(planPath, p);
+    setProposal(p);
+    setPui(ui);
+    setPreviewing(ui.accepted === null);
+    if (!initial || ui.accepted === null) {
+      setBanner({ tone: "info", text: `The agent proposed a change: “${p.title}”. It's previewed on the graph; review it in the Proposal tab.` });
+    }
+  }, []);
 
   /** plan.json changed on disk: adopt it as the new base and reapply unsent local edits. */
   const adoptNewBase = useCallback(async () => {
@@ -118,9 +162,10 @@ export function usePlanStore() {
     const tick = async () => {
       try {
         const r = await fetch("/api/status");
-        const s = (await r.json()) as { hash: string; changesetPending: boolean; agentWorking?: boolean };
+        const s = (await r.json()) as { hash: string; changesetPending: boolean; agentWorking?: boolean; proposalId?: string | null };
         if (stop) return;
         setPending(s.changesetPending);
+        if ((s.proposalId ?? null) !== (latest.current.proposal?.id ?? null)) await loadProposal(latest.current.loaded!.planPath);
         // While the agent is mid-apply, plan.json is half-finished: wait for it to finish.
         if (s.hash !== latest.current.loaded?.hash && !s.agentWorking) await adoptNewBase();
       } catch {
@@ -129,7 +174,7 @@ export function usePlanStore() {
     };
     const t = setInterval(tick, POLL_MS);
     return () => { stop = true; clearInterval(t); };
-  }, [loaded, adoptNewBase]);
+  }, [loaded, adoptNewBase, loadProposal]);
 
   const plan = hist?.present ?? null;
   const index: PlanIndex = useMemo(() => (plan ? buildIndex(plan) : new Map()), [plan]);
@@ -160,6 +205,75 @@ export function usePlanStore() {
   const blocking = issues.filter((i) => i.severity === "error");
   const unsentSinceSend = useMemo(() => (sent && plan ? diffPlans(sent, plan).length : null), [sent, plan]);
 
+  // ── proposal ──
+  const proposalOpen = !!proposal && !!pui && pui.accepted === null;
+  /** The working plan with the ticked ops applied; removed items are kept so they can be shown struck through. */
+  const preview = useMemo(() => {
+    if (!proposal || !pui || !plan || !proposalOpen) return null;
+    const p = applyProposal(plan, proposal.ops, pui.included, { keepRemovals: true }).plan;
+    return { plan: p, index: buildIndex(p), marks: proposalMarks(proposal.ops, pui.included) };
+  }, [proposal, pui, plan, proposalOpen]);
+  /** Ops that no longer apply to the working plan (their target is gone or their id is taken). */
+  const proposalFailed = useMemo(
+    () => (proposal && plan && proposalOpen ? new Set(applyProposal(plan, proposal.ops).failed) : new Set<number>()),
+    [proposal, plan, proposalOpen],
+  );
+  const impacts = useMemo(
+    // Once accepted, the working plan already contains the ops: measure against plan.json instead.
+    () => (proposal && plan && pui && loaded ? decisionImpacts(pui.accepted ? loaded.base : plan, proposal, pui.accepted ?? pui.included) : []),
+    [proposal, plan, pui, loaded],
+  );
+  const proposalResponded = !!pui && pui.accepted !== null;
+
+  useEffect(() => {
+    if (!loaded || !pui) return;
+    try { localStorage.setItem(proposalKey(loaded.planPath), JSON.stringify(pui)); } catch { /* ignore */ }
+  }, [loaded, pui]);
+
+  const updatePui = useCallback((fn: (u: ProposalUI) => ProposalUI) => setPui((u) => (u ? fn(u) : u)), []);
+  const toggleProposalOp = useCallback((i: number) => updatePui((u) => ({
+    ...u, included: u.included.includes(i) ? u.included.filter((x) => x !== i) : [...u.included, i].sort((a, b) => a - b),
+  })), [updatePui]);
+  const setProposalOps = useCallback((included: number[]) => updatePui((u) => ({ ...u, included })), [updatePui]);
+  const setAnswer = useCallback((qid: string, text: string) => updatePui((u) => ({ ...u, answers: { ...u.answers, [qid]: text } })), [updatePui]);
+  const setReply = useCallback((reply: string) => updatePui((u) => ({ ...u, reply })), [updatePui]);
+
+  /** Apply the ticked ops to the working plan as the user's own (confirmed) edits. */
+  const acceptProposal = useCallback(() => {
+    const { proposal: P, pui: U, hist: H } = latest.current;
+    if (!P || !U || !H) return;
+    const { plan: next, failed } = applyProposal(H.present, P.ops, U.included, { confirm: true });
+    const accepted = U.included.filter((i) => !failed.includes(i));
+    if (accepted.length) {
+      acceptSnap.current = { before: H.present, after: next };
+      setHist({ past: [...H.past.slice(-99), H.present], present: next, future: [] });
+    }
+    setPui({ ...U, accepted });
+    setPreviewing(false);
+    const rejected = P.ops.length - accepted.length;
+    setBanner({
+      tone: failed.length ? "warn" : "success",
+      text: (P.ops.length === 0 ? "Answers ready." : `Accepted ${accepted.length} of ${P.ops.length} proposed change(s)${rejected ? `; ${rejected} rejected` : ""}.`) +
+        (failed.length ? ` ${failed.length} no longer applied to your plan.` : "") +
+        " Press Send to hand your answer to the agent.",
+    });
+  }, []);
+  const rejectProposal = useCallback(() => {
+    updatePui((u) => ({ ...u, accepted: [] }));
+    setPreviewing(false);
+    setBanner({ tone: "info", text: "Proposal rejected. Add a reply if you like, then press Send so the agent knows." });
+  }, [updatePui]);
+  /** Go back to reviewing the proposal; undoes the accept if nothing was edited since. */
+  const reopenProposal = useCallback(() => {
+    const { hist: H } = latest.current;
+    const snap = acceptSnap.current;
+    if (H && snap && H.present === snap.after) setHist({ past: [...H.past.slice(-99), H.present], present: snap.before, future: [] });
+    else if (latest.current.pui?.accepted?.length) setBanner({ tone: "warn", text: "You've edited since accepting, so the accepted changes stay in Changes. Revert them there if you don't want them." });
+    acceptSnap.current = null;
+    updatePui((u) => ({ ...u, accepted: null }));
+    setPreviewing(true);
+  }, [updatePui]);
+
   // keep the draft in localStorage so a reload or closed tab doesn't lose review work
   useEffect(() => {
     if (!loaded) return;
@@ -170,13 +284,15 @@ export function usePlanStore() {
 
   const send = useCallback(async () => {
     const { loaded: L, hist: H } = latest.current;
-    if (!L || !H || !changes.length || blocking.length) return;
-    const changeset = toChangeset(changes, L.hash, globalNote);
+    const { proposal: P, pui: U } = latest.current;
+    const response = P && U && U.accepted !== null ? makeResponse(P, U.accepted, U.answers, U.reply) : undefined;
+    if (!L || !H || (!changes.length && !response) || blocking.length) return;
+    const changeset = { ...toChangeset(changes, L.hash, globalNote), ...(response ? { proposal: response } : {}) };
     const r = await fetch("/api/changeset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(changeset) });
     if (r.ok) {
       setSent(clone(H.present));
       setPending(true);
-      setBanner({ tone: "info", text: `Sent ${changeset.ops.length} change(s). Waiting for the agent to apply them…` });
+      setBanner({ tone: "info", text: `Sent ${changeset.ops.length} change(s)${response ? " and your answer to the proposal" : ""}. Waiting for the agent…` });
     } else if (r.status === 409) {
       setBanner({ tone: "warn", text: "plan.json changed since you loaded it. Reloading and reapplying your edits; review, then send again." });
       await adoptNewBase();
@@ -186,6 +302,8 @@ export function usePlanStore() {
       setBanner({ tone: "warn", text: `Send failed: ${(await r.json()).error ?? r.statusText}` });
     }
   }, [changes, blocking.length, globalNote, adoptNewBase]);
+  /** Something to send: edits, or an answered proposal. */
+  const sendable = changes.length + (proposalResponded ? 1 : 0);
 
   const setNote = useCallback((ref: Ref, text: string) => setNotes((n) => ({ ...n, [ref]: text })), []);
   const clearAgentChanged = useCallback((ref: Ref) => {
@@ -200,7 +318,10 @@ export function usePlanStore() {
     notes, setNote, globalNote, setGlobalNote,
     edit, replace, undo, redo,
     canUndo: !!hist?.past.length, canRedo: !!hist?.future.length,
-    send, sent: !!sent, unsentSinceSend, pending,
+    send, sendable, sent: !!sent, unsentSinceSend, pending,
+    proposal, pui, proposalOpen, proposalResponded, preview, previewing: previewing && !!preview, setPreviewing,
+    proposalFailed, impacts, toggleProposalOp, setProposalOps, setAnswer, setReply,
+    acceptProposal, rejectProposal, reopenProposal,
     agentChanged, clearAgentChanged, banner, setBanner,
   };
 }

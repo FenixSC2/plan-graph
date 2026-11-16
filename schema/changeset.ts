@@ -1,6 +1,7 @@
 // Plan Graph — changeset schema (GUI → agent), v0 draft.
 
 import type { Ref, Surface, State, Element, Interaction, Outcome, Decision, Group } from "./plan";
+import type { ProposalResponse } from "./proposal";
 
 export interface Changeset {
   /** Hash of the plan.json the user was editing. Agent must rebase/ask if it no longer matches. */
@@ -8,6 +9,11 @@ export interface Changeset {
   /** Overall message from the user, optional. */
   note?: string;
   ops: Op[];
+  /**
+   * The user's response to the agent's pending proposal (schema/proposal.ts), if they
+   * answered it in this send. Ops they accepted are already included in `ops` above.
+   */
+  proposal?: ProposalResponse;
 }
 
 export type Op = AddOp | UpdateOp | RemoveOp | ConfirmOp | CommentOp;

@@ -2,6 +2,7 @@ import { memo, useContext, useEffect } from "react";
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
 import { CompactContext, UIContext } from "../ui/context.ts";
 import { interactionLabel } from "../model/plan.ts";
+import { isRemoved } from "../model/proposal.ts";
 import type { SurfaceNodeT } from "./build.ts";
 
 function SurfaceNodeImpl({ id, data }: NodeProps<SurfaceNodeT>) {
@@ -18,6 +19,16 @@ function SurfaceNodeImpl({ id, data }: NodeProps<SurfaceNodeT>) {
     ui.select(ref);
   };
   const dot = (ref: string) => (ui.agentChanged.has(ref) ? <span className="agent-dot" title="Updated by the agent" /> : null);
+  // Proposal preview: " pm-add" / " pm-update" / " pm-remove" on items the proposal touches.
+  const marks = ui.marks;
+  const pm = (ref: string) => {
+    if (!marks?.size) return "";
+    if (isRemoved(marks, ref, ui.index)) return " pm-remove";
+    const k = marks.get(ref);
+    return k ? ` pm-${k}` : "";
+  };
+  const touched = !!marks?.size && [...marks.keys()].some((r) => r === surface.id || r.startsWith(surface.id + ".") || r.startsWith(surface.id + "#"));
+  const nodePm = pm(surface.id) || (touched ? " pm-touched" : "");
 
   if (compact) {
     // Zoomed out: just the header and a count. Every row handle still exists (stacked on the
@@ -26,7 +37,7 @@ function SurfaceNodeImpl({ id, data }: NodeProps<SurfaceNodeT>) {
     const changed = ui.agentChanged.size > 0 && [...ui.agentChanged].some((r) => r === surface.id || r.startsWith(surface.id + ".") || r.startsWith(surface.id + "#"));
     return (
       <div
-        className={`snode compact status-${surface.meta.status} profile-${surface.profile}${sel === surface.id ? " is-selected" : ""}`}
+        className={`snode compact status-${surface.meta.status} profile-${surface.profile}${sel === surface.id ? " is-selected" : ""}${nodePm}`}
         onClick={pick(surface.id)}
       >
         <Handle type="target" id="in" position={Position.Left} className="h-in" />
@@ -55,7 +66,7 @@ function SurfaceNodeImpl({ id, data }: NodeProps<SurfaceNodeT>) {
 
   return (
     <div
-      className={`snode status-${surface.meta.status} profile-${surface.profile}${sel === surface.id ? " is-selected" : ""}`}
+      className={`snode status-${surface.meta.status} profile-${surface.profile}${sel === surface.id ? " is-selected" : ""}${nodePm}`}
       onClick={pick(surface.id)}
     >
       <Handle type="target" id="in" position={Position.Left} className="h-in" />
@@ -65,7 +76,9 @@ function SurfaceNodeImpl({ id, data }: NodeProps<SurfaceNodeT>) {
           <span className="ktag">{surface.kind}</span>
           {isEntry && <span className="etag" title="Entry point">entry</span>}
           {surface.meta.status === "sketch" && <span className="sktag">needs detail</span>}
-          {surface.meta.status === "proposed" && <span className="prtag" title="Proposed by the agent, not reviewed">proposed</span>}
+          {surface.meta.status === "proposed" && !nodePm.startsWith(" pm-add") && <span className="prtag" title="Proposed by the agent, not reviewed">proposed</span>}
+          {nodePm === " pm-add" && <span className="pmtag pmtag-add">new in proposal</span>}
+          {nodePm === " pm-remove" && <span className="pmtag pmtag-remove">removed in proposal</span>}
         </div>
         <div className="snode-name">
           {surface.name}
@@ -79,7 +92,7 @@ function SurfaceNodeImpl({ id, data }: NodeProps<SurfaceNodeT>) {
           {surface.states.map((st) => {
             const ref = `${surface.id}#${st.id}`;
             return (
-              <button key={st.id} className={`chip state-chip status-${st.meta.status}${sel === ref ? " is-selected" : ""}`} onClick={pick(ref)} title={st.description}>
+              <button key={st.id} className={`chip state-chip status-${st.meta.status}${sel === ref ? " is-selected" : ""}${pm(ref)}`} onClick={pick(ref)} title={st.description}>
                 {st.id}
                 {dot(ref)}
               </button>
@@ -92,14 +105,14 @@ function SurfaceNodeImpl({ id, data }: NodeProps<SurfaceNodeT>) {
         {rows.map((r) => {
           const it = r.interaction;
           return (
-            <div key={it.id} className={`srow status-${it.meta.status}${sel === it.id ? " is-selected" : ""}`} onClick={pick(it.id)}>
+            <div key={it.id} className={`srow status-${it.meta.status}${sel === it.id ? " is-selected" : ""}${pm(it.id)}`} onClick={pick(it.id)}>
               <div className="srow-main">
                 {r.fromState && <span className="from-state">[{r.fromState}]</span>}
                 <span className="srow-label">{interactionLabel(ui.index, it)}</span>
                 {dot(it.id)}
               </div>
               {r.stays.map((o) => (
-                <div key={o.id} className={`stay status-${o.meta.status}${sel === o.id ? " is-selected" : ""}`} onClick={pick(o.id)} title={o.result}>
+                <div key={o.id} className={`stay status-${o.meta.status}${sel === o.id ? " is-selected" : ""}${pm(o.id)}`} onClick={pick(o.id)} title={o.result}>
                   <span className="stay-when">{o.when}</span>
                   {o.result && <span className="stay-result"> — {o.result}</span>}
                   {dot(o.id)}
@@ -114,7 +127,7 @@ function SurfaceNodeImpl({ id, data }: NodeProps<SurfaceNodeT>) {
       {!!freeElements.length && (
         <div className="snode-els">
           {freeElements.map((e) => (
-            <button key={e.id} className={`chip el-chip status-${e.meta.status}${sel === e.id ? " is-selected" : ""}`} onClick={pick(e.id)} title={e.kind}>
+            <button key={e.id} className={`chip el-chip status-${e.meta.status}${sel === e.id ? " is-selected" : ""}${pm(e.id)}`} onClick={pick(e.id)} title={e.kind}>
               <span className="el-kind">{e.kind}</span> {e.label}
               {dot(e.id)}
             </button>

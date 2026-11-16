@@ -27,17 +27,35 @@
 //   p.update("api.create-link.request.ok", { result: "201 {code, shortUrl}" }, "Alias field is gone");
 //   p.save();
 //
+// Proposing a change instead of making it (the user asked for something in chat and should
+// see it in the GUI before it lands). Edit exactly as above, then call propose() instead of
+// save(): plan.json is left alone and the diff goes to plan-graph/proposal.json, which the GUI
+// shows as a reviewable proposal with the decisions it changes and your questions:
+//
+//   const p = open("plan-graph/plan.json");
+//   p.remove("web.home.alias-input", "You asked to drop custom aliases");
+//   p.update("d.redirect-status", { value: "301" }, "Permanent links can be cached");
+//   p.propose({ title: "Drop custom aliases", request: "can we get rid of custom aliases?",
+//     summary: "Removes the alias input, its error outcomes, the API field and the CLI flag.",
+//     questions: [{ id: "q.existing", question: "What happens to links already created with an alias?",
+//       options: ["Keep working", "Redirect to a random code"], recommended: "Keep working",
+//       refs: ["api.redirect"] }] });
+//
 // Meta is filled in for you: new items get the current defaults (agent/proposed, or set
 // p.defaults({ origin: "code", status: "confirmed", built: "yes" }) for extraction), plus the
 // `note` and `sources` you pass. `update` and `remove` record why; `update` sets the item's
 // status back to "proposed" so the user sees it, unless you pass { keepStatus: true }.
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import type {
   Plan, Surface, State, Element, Interaction, Outcome, Decision, Group, Meta, Ref, SourceRef, Effect,
 } from "../schema/plan.ts";
 import { buildIndex, deleteWithCascade, insertItem, type ItemType } from "../gui/src/model/plan.ts";
 import { lint, type Profile } from "../gui/src/model/lint.ts";
+import { diffPlans, toChangeset } from "../gui/src/model/diff.ts";
+import { decisionImpacts, opRef } from "../gui/src/model/proposal.ts";
+import type { Proposal, ProposalQuestion } from "../schema/proposal.ts";
 
 const SKILL_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 
@@ -72,9 +90,13 @@ export class PlanBuilder {
   file?: string;
   private base: Meta = { origin: "agent", status: "proposed" };
 
-  constructor(plan: Plan, file?: string) {
+  /** The plan as loaded by open(), for propose(). */
+  private original?: { text: string; plan: Plan };
+
+  constructor(plan: Plan, file?: string, originalText?: string) {
     this.plan = plan;
     this.file = file;
+    if (originalText !== undefined) this.original = { text: originalText, plan: JSON.parse(originalText) };
   }
 
   /** Default meta for items created from now on. */
@@ -223,6 +245,85 @@ export class PlanBuilder {
 
   // ------------------------------------------------------------ output
 
+  /**
+   * Write your edits as a proposal for the user to review in the GUI, instead of saving them.
+   * plan.json is not touched. Refuses (exit code 1, nothing written) if the edited plan has
+   * lint errors or the user has sent changes you haven't applied yet.
+   */
+  propose(
+    info: { title: string; summary?: string; request?: string; questions?: ProposalQuestion[]; id?: string },
+    { profilesDir = path.join(SKILL_DIR, "profiles") } = {},
+  ): Proposal | null {
+    if (!this.original || !this.file) throw new Error("propose: open the plan with open(file) first");
+    const dir = path.dirname(path.resolve(this.file));
+    if (fs.existsSync(path.join(dir, "changeset.json"))) {
+      console.log("The user has sent changes you haven't applied. Run `plan.ts apply` and `done` first, then propose.");
+      process.exitCode = 1;
+      return null;
+    }
+    const current = fs.readFileSync(this.file, "utf8");
+    if (current !== this.original.text) {
+      console.log("plan.json changed since you opened it. Re-open it and redo your edits, then propose.");
+      process.exitCode = 1;
+      return null;
+    }
+    for (const q of info.questions ?? []) {
+      if (q.recommended && q.options && !q.options.includes(q.recommended)) throw new Error(`propose: question ${q.id}: recommended must be one of its options`);
+    }
+
+    const ops = toChangeset(diffPlans(this.original.plan, this.plan), "").ops;
+    // Say why each removal happens: your reason, or which removal it follows from.
+    const why = new Map(this.removed.map((r) => [r.ref, r.why]));
+    const roots = this.removed.map((r) => r.ref);
+    for (const op of ops) {
+      if (op.op !== "remove" || op.note) continue;
+      const w = why.get(op.ref);
+      op.note = w ?? (roots.length === 1 ? `Follows from removing ${roots[0]}` : "Structural fallout of the removals in this proposal");
+    }
+    if (!ops.length && !info.questions?.length) {
+      console.log("propose: nothing to propose (no edits and no questions).");
+      process.exitCode = 1;
+      return null;
+    }
+
+    const profiles: Record<string, Profile> = {};
+    for (const id of this.plan.profiles) {
+      const p = path.join(profilesDir, `${id}.json`);
+      if (fs.existsSync(p)) profiles[id] = JSON.parse(fs.readFileSync(p, "utf8"));
+    }
+    const errors = lint(this.plan, profiles).filter((i) => i.severity === "error");
+    if (errors.length) {
+      for (const i of errors) console.log(`error    ${i.message}${i.ref ? `  (${i.ref})` : ""}`);
+      console.log("\nThe plan with your proposal applied has lint errors. Fix them, then propose again.");
+      process.exitCode = 1;
+      return null;
+    }
+
+    const now = new Date();
+    const proposal: Proposal = {
+      id: info.id ?? `p-${now.toISOString().replace(/[-:]/g, "").replace(/\..+/, "")}`,
+      base: "sha256:" + crypto.createHash("sha256").update(this.original.text).digest("hex"),
+      createdAt: now.toISOString(),
+      title: info.title,
+      ...(info.summary ? { summary: info.summary } : {}),
+      ...(info.request ? { request: info.request } : {}),
+      ops,
+      ...(info.questions?.length ? { questions: info.questions } : {}),
+    };
+    const out = path.join(dir, "proposal.json");
+    fs.writeFileSync(out, JSON.stringify(proposal, null, 2) + "\n");
+
+    console.log(`Wrote ${out}: “${proposal.title}”, ${ops.length} op(s), ${info.questions?.length ?? 0} question(s). plan.json is unchanged.`);
+    for (const op of ops) console.log(`  ${op.op.padEnd(7)} ${opRef(op)}${op.note ? `  — ${op.note}` : ""}`);
+    const impacts = decisionImpacts(this.original.plan, proposal);
+    if (impacts.length) {
+      console.log("Decisions the GUI will show with it:");
+      for (const d of impacts) console.log(`  ${d.kind.padEnd(8)} ${d.ref} (${d.decision.impact}): ${d.decision.question}`);
+    }
+    console.log("The GUI shows it in the Proposal tab within a couple of seconds. Wait for the user's send (`plan.ts wait`).");
+    return proposal;
+  }
+
   /** Write plan.json (2-space JSON) and lint it. Exits 1 if lint finds errors. */
   save(file = this.file, { profilesDir = path.join(SKILL_DIR, "profiles"), quiet = false } = {}): void {
     if (!file) throw new Error("save: no file given");
@@ -277,5 +378,6 @@ export function create(project: {
 
 /** Load an existing plan for editing. save() with no argument writes it back. */
 export function open(file: string): PlanBuilder {
-  return new PlanBuilder(JSON.parse(fs.readFileSync(file, "utf8")), file);
+  const text = fs.readFileSync(file, "utf8");
+  return new PlanBuilder(JSON.parse(text), file, text);
 }

@@ -123,8 +123,14 @@ A session goes like this:
    one test per outcome. If the build forces a change, it updates the plan instead of letting the
    code drift.
 
-Commit `plan-graph/plan.json`, because it is your app's spec. Add `plan-graph/changeset*.json` to
-`.gitignore`, because those files only exist while a review is in progress.
+**Asking for changes in chat works too.** Say "drop custom aliases" or "add team invites", and
+the agent loads the change into the editor as a **proposal**: previewed on the graph, with the
+decisions it changes, the ones it puts in question, and anything it needs you to answer. Tick the
+parts you want, answer the questions and press **Send**.
+
+Commit `plan-graph/plan.json`, because it is your app's spec. Add `plan-graph/changeset*.json` and
+`plan-graph/proposal.json` to `.gitignore`, because those files only exist while a review is in
+progress.
 
 ### Try the editor without an agent
 

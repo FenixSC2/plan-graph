@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { UIContext } from "./context.ts";
 import {
   buildIndex, interactionLabel, labelOf, slug, surfaceOf, uniqueId, userMeta,
   type Decision, type Element, type Interaction, type Located, type Outcome, type Plan, type Ref, type State, type Surface,
@@ -360,11 +361,13 @@ function InteractionBody({ store, plan, mutate, select, it }: Ctx & { it: Intera
 }
 
 function OutcomeBody({ store, plan, mutate, select, o, parent }: Ctx & { o: Outcome; parent: Interaction }) {
+  const { follow } = useContext(UIContext);
   return (
     <Section title="Outcome">
       <p className="muted">Branch of <a onClick={() => select(parent.id)}>{interactionLabel(store.index, parent)}</a> on {labelOf(store.index, surfaceOf(parent.from))}</p>
       <TextField label="When" value={o.when} onCommit={(v) => mutate((l) => { (l.item as Outcome).when = v; })} />
       <SelectField label="Goes to" value={o.to ?? ""} options={destinationOptions(plan, true)} onChange={(v) => mutate((l) => { (l.item as Outcome).to = v || null; })} />
+      {o.to && follow && <p className="follow-link"><a onClick={() => follow(o.id)}>Follow to {labelOf(store.index, o.to)} ⟶</a> <span className="muted small">(or press ])</span></p>}
       <TextField label="Observable result" multiline value={o.result} placeholder="status code, exit code, message, UI feedback…" onCommit={(v) => mutate((l) => { (l.item as Outcome).result = v || undefined; })} />
       <p className="hint">Tip: drag the arrow's end onto another surface to retarget it.</p>
     </Section>

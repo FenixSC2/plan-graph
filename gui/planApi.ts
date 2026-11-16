@@ -1,7 +1,8 @@
 // Server API: the bridge between the GUI and the agent. Mounted on both the dev server
 // (`npm run dev`) and the production preview server (`plan.ts serve`).
 //   GET  /api/plan       → { plan, hash, profiles, planPath }
-//   GET  /api/status     → { hash, changesetPending }
+//   GET  /api/status     → { hash, changesetPending, agentWorking, proposalId }
+//   GET  /api/proposal   → { proposal } — the agent's pending proposal (proposal.json), or null
 //   POST /api/changeset  → writes changeset.json next to plan.json
 // The agent renames changeset.json to changeset.applying.json while it works (so the GUI
 // neither adopts a half-finished plan nor sends again), then deletes it when done.
@@ -13,6 +14,11 @@ import crypto from "node:crypto";
 export function planApi(opts: { planPath: string; profilesDir: string }): Plugin {
   const changesetPath = path.join(path.dirname(opts.planPath), "changeset.json");
   const applyingPath = path.join(path.dirname(opts.planPath), "changeset.applying.json");
+  const proposalPath = path.join(path.dirname(opts.planPath), "proposal.json");
+  const readProposal = () => {
+    try { return fs.existsSync(proposalPath) ? JSON.parse(fs.readFileSync(proposalPath, "utf8")) : null; }
+    catch { return null; } // mid-write or malformed: treat as absent until the next poll
+  };
   const hashOf = (text: string) => "sha256:" + crypto.createHash("sha256").update(text).digest("hex");
   const readPlanText = () => fs.readFileSync(opts.planPath, "utf8");
 
@@ -52,7 +58,11 @@ export function planApi(opts: { planPath: string; profilesDir: string }): Plugin
           hash: currentHash(),
           changesetPending: agentWorking || fs.existsSync(changesetPath),
           agentWorking,
+          proposalId: readProposal()?.id ?? null,
         });
+      }
+      if (req.method === "GET" && url === "/api/proposal") {
+        return json(res, 200, { proposal: readProposal() });
       }
       if (req.method === "POST" && url === "/api/changeset") {
         let body = "";

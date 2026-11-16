@@ -9,7 +9,10 @@ import { Sidebar, type Tab } from "./ui/Sidebar.tsx";
 import { AddSurfaceDialog, DeleteDialog } from "./ui/Dialogs.tsx";
 import { UIContext } from "./ui/context.ts";
 import { TextField } from "./ui/fields.tsx";
-import { buildIndex, slug, uniqueId, userMeta, type Ref } from "./model/plan.ts";
+import { ProposedItem } from "./ui/ProposalTab.tsx";
+import { TraceBar } from "./graph/TraceBar.tsx";
+import { stopSmoothWheel } from "./graph/smoothWheel.ts";
+import { buildIndex, labelOf, slug, surfaceOf, uniqueId, userMeta, type Plan, type Ref } from "./model/plan.ts";
 
 export function App() {
   return (
@@ -20,7 +23,7 @@ export function App() {
 }
 
 /** Node positions: view state only (not part of the plan), persisted per plan file in localStorage. */
-function usePositions(store: Store) {
+function usePositions(store: Store, plan: Plan | null) {
   // v2: grouped auto-layout. Positions saved by older versions are laid out again once.
   const key = store.loaded ? `plan-graph:pos:v2:${store.loaded.planPath}` : null;
   const [positions, setPositions] = useState<Record<string, XY> | null>(null);
@@ -32,18 +35,18 @@ function usePositions(store: Store) {
     setPositions(stored);
   }, [key, positions]);
 
-  // Give any surface without a position (first load, agent-added) one from auto-layout.
+  // Give any surface without a position (first load, agent-added, previewed) one from auto-layout.
   useEffect(() => {
-    if (!store.plan || !positions) return;
-    const missing = store.plan.surfaces.filter((s) => !positions[s.id]);
+    if (!plan || !positions) return;
+    const missing = plan.surfaces.filter((s) => !positions[s.id]);
     if (!missing.length) return;
-    const auto = autoLayout(store.plan);
+    const auto = autoLayout(plan);
     setPositions((p) => {
       const n = { ...p };
       for (const s of missing) n[s.id] = auto[s.id];
       return n;
     });
-  }, [store.plan, positions]);
+  }, [plan, positions]);
 
   useEffect(() => {
     if (!key || !positions) return;
@@ -61,7 +64,11 @@ function Workspace() {
   const [showCalls, setShowCalls] = useState(true);
   const [deleting, setDeleting] = useState<Ref | null>(null);
   const [adding, setAdding] = useState(false);
-  const [positions, setPositions] = usePositions(store);
+  // While the agent's proposal is previewed, the canvas shows the plan with it applied (read-only).
+  const previewing = store.previewing && !!store.preview;
+  const shownPlan = previewing ? store.preview!.plan : store.plan;
+  const shownIndex = previewing ? store.preview!.index : store.index;
+  const [positions, setPositions] = usePositions(store, shownPlan);
   // Large grouped plans open on the group map, so people see the shape before the detail.
   const [overview, setOverview] = useState<boolean | null>(null);
   useEffect(() => {
@@ -79,15 +86,76 @@ function Workspace() {
     if (ref) store.clearAgentChanged(ref);
   }, [store.clearAgentChanged]);
 
+  /**
+   * Glide the canvas to a surface: centred, with its header in view, at a readable zoom. Long
+   * jumps zoom out a little on the way ("smooth" interpolation) so you see where you're going.
+   */
+  const glideTo = useCallback((sid: string) => {
+    stopSmoothWheel(canvasRef.current?.querySelector(".react-flow") as HTMLElement | null);
+    const go = () => {
+      const n = rf.getInternalNode(sid);
+      const box = canvasRef.current?.getBoundingClientRect();
+      if (!n || !box) return;
+      const w = n.measured?.width ?? n.width ?? n.initialWidth ?? 280;
+      const h = n.measured?.height ?? n.height ?? n.initialHeight ?? 200;
+      const zoom = Math.min(1.25, Math.max(0.75, rf.getZoom()));
+      const visibleH = box.height / zoom;
+      const { x, y } = n.internals.positionAbsolute;
+      // Tall surfaces: centre their top part rather than their middle, so the name stays on screen.
+      const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      rf.setCenter(x + w / 2, y + Math.min(h, visibleH * 0.8) / 2, { zoom, duration: still ? 0 : 650, interpolate: "smooth" });
+    };
+    if (overview) { setOverview(false); setTimeout(go, 60); } else go();
+  }, [rf, overview]);
+
   /** Select and pan the canvas to the item (used from side panels). */
   const selectAndFocus = useCallback((ref: Ref | null) => {
     select(ref);
     if (!ref) return;
-    const sid = surfaceFor(store.index, ref);
-    if (!sid) return;
-    if (overview) setOverview(false);
-    setTimeout(() => rf.fitView({ nodes: [{ id: sid }], duration: 350, maxZoom: 1.1, padding: 0.8 }), overview ? 60 : 0);
-  }, [select, store.index, rf, overview]);
+    const sid = surfaceFor(shownIndex, ref);
+    if (sid) glideTo(sid);
+  }, [select, shownIndex, glideTo]);
+
+  // ── tracing: follow arrows hop by hop, with a trail to go back along ──
+  const [trail, setTrail] = useState<Ref[]>([]);
+  const follow = useCallback((ref: Ref) => {
+    const loc = shownIndex.get(ref);
+    if (!loc) return;
+    // An outcome leads to its destination; anything else is selected where it is.
+    const dest = loc.type === "outcome" ? loc.item.to ?? surfaceOf(loc.parent.from) : ref;
+    const sid = surfaceFor(shownIndex, dest);
+    if (selected && selected !== dest) setTrail((t) => [...t.slice(-49), selected]);
+    select(dest);
+    if (sid) glideTo(sid);
+  }, [shownIndex, selected, select, glideTo]);
+  const back = useCallback(() => {
+    // Drop trail entries that no longer exist (deleted, or a proposal preview was closed).
+    const t = [...trail];
+    while (t.length && !shownIndex.has(t[t.length - 1])) t.pop();
+    const prev = t.pop();
+    setTrail(t);
+    if (!prev) return;
+    select(prev);
+    const sid = surfaceFor(shownIndex, prev);
+    if (sid) glideTo(sid);
+  }, [trail, shownIndex, select, glideTo]);
+  const backTo = [...trail].reverse().find((r) => shownIndex.has(r));
+
+  // A new proposal from the agent: open its tab and frame what it touches.
+  const proposalId = store.proposalOpen ? store.proposal!.id : null;
+  useEffect(() => {
+    if (!proposalId || !store.preview) return;
+    setTab("proposal");
+    const sids = [...new Set([...store.preview.marks.keys()].map((r) => surfaceFor(store.preview!.index, r)).filter((x): x is string => !!x))];
+    if (!sids.length) return;
+    setOverview(false);
+    setTimeout(() => rf.fitView({ nodes: sids.map((id) => ({ id })), duration: 400, padding: 0.25, maxZoom: 1 }), 120);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proposalId]);
+  // The agent picked up the answer (proposal.json is gone): leave the tab.
+  useEffect(() => {
+    if (tab === "proposal" && !store.proposal) setTab("changes");
+  }, [tab, store.proposal]);
 
   /** Zoom to a whole group's surfaces (leaving the group map if it's showing). */
   const openGroup = useCallback((gid: string) => {
@@ -100,8 +168,8 @@ function Workspace() {
 
   // drop selection if the item disappears (undo, agent update)
   useEffect(() => {
-    if (selected && !store.index.has(selected)) setSelected(null);
-  }, [store.index, selected]);
+    if (selected && !shownIndex.has(selected)) setSelected(null);
+  }, [shownIndex, selected]);
 
   // keyboard shortcuts
   useEffect(() => {
@@ -110,12 +178,14 @@ function Workspace() {
       if (t.closest("input, textarea, select, [contenteditable]") || document.querySelector(".modal")) return;
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? store.redo() : store.undo(); }
-      else if ((e.key === "Delete" || e.key === "Backspace") && selected) { e.preventDefault(); setDeleting(selected); }
+      else if ((e.key === "Delete" || e.key === "Backspace") && selected && !previewing) { e.preventDefault(); setDeleting(selected); }
       else if (e.key === "Escape") select(null);
+      else if (e.key === "]" && selected) { e.preventDefault(); follow(selected); }
+      else if (e.key === "[") { e.preventDefault(); back(); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [store.undo, store.redo, selected, select]);
+  }, [store.undo, store.redo, selected, select, previewing, follow, back]);
 
   const onConnect = useCallback((source: string, handle: string, target: string) => {
     const idx = store.index;
@@ -154,12 +224,13 @@ function Workspace() {
     select(outcomeId);
   }, [store, select]);
 
-  const ui = useMemo(() => ({ selected, select, agentChanged: store.agentChanged, index: store.index, openGroup }), [selected, select, store.agentChanged, store.index, openGroup]);
+  const marks = previewing ? store.preview!.marks : undefined;
+  const ui = useMemo(() => ({ selected, select, agentChanged: store.agentChanged, index: shownIndex, marks, follow, openGroup }), [selected, select, store.agentChanged, shownIndex, marks, follow, openGroup]);
 
   if (store.loadError) return <div className="fatal">Couldn't load the plan: {store.loadError}</div>;
-  if (!store.plan || !store.loaded || !positions || overview === null) return <div className="fatal muted">Loading plan…</div>;
+  if (!store.plan || !shownPlan || !store.loaded || !positions || overview === null) return <div className="fatal muted">Loading plan…</div>;
 
-  const plan = store.plan;
+  const plan = shownPlan;
   if (!mounted.current && plan.surfaces.every((s) => positions[s.id])) mounted.current = true;
   const sentClean = store.sent && store.unsentSinceSend === 0;
 
@@ -191,14 +262,23 @@ function Workspace() {
             </label>
           </div>
           <div className="send-area">
+            {store.proposalOpen && (
+              <button
+                className={`btn proposal-pill${previewing ? " on" : ""}`}
+                title={previewing ? "Showing the agent's proposal on the graph. Click to show your plan as it is." : "Show the agent's proposal on the graph"}
+                onClick={() => { store.setPreviewing(!previewing); setTab("proposal"); }}
+              >
+                <span className="pm-swatch" /> {previewing ? "Previewing proposal" : "Preview proposal"}
+              </button>
+            )}
             {store.pending && <span className="pending" title="The agent has your changes and is working on them"><span className="pulse" /> waiting for agent</span>}
             <button
               className="btn primary"
-              disabled={!store.changes.length || !!store.blocking.length || sentClean}
-              onClick={() => { setTab("changes"); store.send(); }}
-              title={store.blocking.length ? "Fix errors in Issues first" : undefined}
+              disabled={!store.sendable || !!store.blocking.length || sentClean}
+              onClick={() => { setTab(store.proposalResponded ? "proposal" : "changes"); store.send(); }}
+              title={store.blocking.length ? "Fix errors in Issues first" : store.proposalOpen ? "Accept or reject the agent's proposal in the Proposal tab to include your answer" : undefined}
             >
-              {sentClean ? "Sent ✓" : `Send changes${store.changes.length ? ` (${store.changes.length})` : ""}`}
+              {sentClean ? "Sent ✓" : store.proposalResponded && !store.changes.length ? "Send answer" : `Send changes${store.changes.length ? ` (${store.changes.length})` : ""}`}
             </button>
           </div>
         </header>
@@ -218,16 +298,28 @@ function Workspace() {
               positions={positions}
               onMoved={(id, pos) => setPositions((p) => ({ ...p!, [id]: pos }))}
               showCalls={showCalls}
-              onConnect={onConnect}
-              onRetarget={onRetarget}
+              onConnect={previewing ? () => {} : onConnect}
+              onRetarget={previewing ? () => {} : onRetarget}
               overview={overview}
               issues={store.issues}
+            />
+          )}
+          {mounted.current && !overview && (
+            <TraceBar
+              plan={plan}
+              index={shownIndex}
+              selected={selected}
+              follow={follow}
+              back={backTo ? back : null}
+              backLabel={backTo ? labelOf(shownIndex, backTo) : undefined}
             />
           )}
         </main>
 
         <aside className="rightpane">
-          {selected ? (
+          {selected && previewing ? (
+            <ProposedItem key={selected} store={store} selected={selected} />
+          ) : selected ? (
             <Inspector key={selected} store={store} selected={selected} select={selectAndFocus} requestDelete={setDeleting} />
           ) : (
             <ProjectPanel store={store} />
@@ -297,6 +389,9 @@ function ProjectPanel({ store }: { store: Store }) {
         <li><span className="lg lg-sketch" /> Needs detail: the agent will fill it in</li>
         <li><span className="lg lg-call" /> Calls another surface (cross-platform)</li>
         <li><span className="agent-dot" /> Updated by the agent since you last looked</li>
+        <li><span className="lg lg-pm-add" /> Added by the agent's proposal (preview)</li>
+        <li><span className="lg lg-pm-update" /> Changed by the proposal</li>
+        <li><span className="lg lg-pm-remove" /> Removed by the proposal</li>
       </ul>
 
       <h4 className="subhead">How to edit</h4>

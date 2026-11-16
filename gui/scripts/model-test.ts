@@ -40,3 +40,44 @@ assert.equal(diffPlans(base, back).length, 0, "reverting every change restores b
 assert.equal(lint(base, profiles).filter((i) => i.severity === "error").length, 0, "example has no lint errors");
 assert.equal(lint(cur, profiles).filter((i) => i.severity === "error").length, 0, "cascade leaves no dangling refs");
 console.log(`OK — ${changes.length} changes, ${cs.ops.length} ops`);
+
+// ── proposals: preview keeps removals for display, accept cascades and confirms, decision impacts ──
+{
+  const { applyProposal, decisionImpacts, proposalMarks, makeResponse } = await import("../src/model/proposal.ts");
+  const edited = clone(base);
+  deleteWithCascade(edited, "web.home.alias-input");
+  deleteWithCascade(edited, "web.home.shorten.taken");
+  const rs = buildIndex(edited).get("d.redirect-status")!.item as any;
+  rs.value = "301"; rs.meta = { ...rs.meta, status: "proposed", note: "permanent" };
+  edited.decisions.push({ id: "d.legacy", attachedTo: ["api.redirect"], question: "Old aliases?", value: "keep", impact: "medium", meta: { origin: "agent", status: "proposed" } });
+  const ops = toChangeset(diffPlans(base, edited), "").ops;
+  const proposal = { ops, questions: [{ id: "q", question: "?", refs: ["d.code-format"] }] };
+
+  const all = applyProposal(base, ops);
+  assert.equal(all.failed.length, 0, "every proposal op applies");
+  assert.equal(norm(sortAll(all.plan)), norm(sortAll(edited)), "applyProposal(base, all ops) == edited plan");
+
+  const preview = applyProposal(base, ops, undefined, { keepRemovals: true });
+  assert.ok(buildIndex(preview.plan).has("web.home.alias-input"), "preview keeps removed items to strike them through");
+  const marks = proposalMarks(ops);
+  assert.equal(marks.get("web.home.alias-input"), "remove");
+  assert.equal(marks.get("d.legacy"), "add");
+
+  const removeIdx = ops.findIndex((o) => o.op === "remove" && o.ref === "web.home.alias-input");
+  const partial = applyProposal(base, ops, [removeIdx], { confirm: true });
+  assert.equal(lint(partial.plan, profiles).filter((i) => i.severity === "error").length, 0, "partial accept cascades: no dangling refs");
+  const accepted = applyProposal(base, ops, undefined, { confirm: true }).plan;
+  assert.equal((buildIndex(accepted).get("d.redirect-status")!.item.meta as any).status, "confirmed", "accepted updates are confirmed");
+  assert.equal((buildIndex(accepted).get("d.legacy")!.item.meta as any).status, "confirmed", "accepted adds are confirmed");
+
+  const impacts = decisionImpacts(base, proposal);
+  const kind = (r: string) => impacts.find((d) => d.ref === r)?.kind;
+  assert.equal(kind("d.redirect-status"), "changed");
+  assert.equal(kind("d.legacy"), "added");
+  assert.equal(kind("d.code-format"), "affected", "decisions named in a question are listed");
+
+  const resp = makeResponse({ id: "p", base: "", title: "t", ops }, [removeIdx], { q: " yes ", x: "  " }, "");
+  assert.equal(resp.accepted.length + resp.rejected.length, ops.length);
+  assert.deepEqual(resp.answers, { q: "yes" }, "blank answers are dropped, others trimmed");
+  console.log(`OK — proposal: ${ops.length} ops, ${impacts.length} decision impacts`);
+}

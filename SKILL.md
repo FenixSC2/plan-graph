@@ -11,7 +11,7 @@ description: >-
   assumptions or edge cases written down for sign-off; or wants a large, complex or unfamiliar
   codebase made easier to see and navigate, mapped or audited (dead routes, missing error
   handling), even if they never say "graph" or "plan". Also use it when the user mentions the plan
-  graph, the graph editor, hitting Send, or a plan-graph/plan.json or changeset.json.
+  graph, the graph editor, hitting Send, or a plan-graph/plan.json, changeset.json or proposal.json.
 ---
 
 # Plan Graph
@@ -29,6 +29,9 @@ out by reading code. This skill makes those choices explicit up front.
 - **The user edits, the agent elaborates.** The user reviews in a GUI, changes things,
   sketches new screens, and hits Send. You receive exact operations against stable IDs,
   not prose, so there is nothing to misinterpret.
+- **Changes asked for in chat are proposed, not just made.** You load them into the GUI
+  as a proposal: a diff the user can see on the graph, with the decisions it changes and
+  the questions it raises, to accept in whole or in part.
 
 This costs more planning up front, in exchange for builds that match what the user wanted
 the first time. Say so if the user wants something quick and throwaway; for a one-file
@@ -42,6 +45,7 @@ Paths below are relative to this skill's directory, written `<skill>`.
 |---|---|
 | `schema/plan.ts` | Before writing or editing any plan. It is the format, with comments on every field. |
 | `schema/changeset.ts` | If you need the exact shape of an op. |
+| `schema/proposal.ts` | If you need the exact shape of a proposal or the user's response to one. |
 | `profiles/{web,cli,api}.json` | When choosing profiles: allowed kinds, required states, the decision checklist. |
 | `examples/link-shortener/plan.json` | Before drafting your first plan: a complete web + API + CLI plan. Match its style. |
 | `references/authoring.md` | When drafting or elaborating: IDs, granularity, outcomes, decisions, impact. |
@@ -66,6 +70,7 @@ between commands, so write it out each time.
 | `pg show <plan>` | Prints the pending changeset, labelled, with your to-do list. |
 | `pg apply <plan> [--rebase]` | Applies the changeset's ops to `plan.json`. The GUI shows "waiting for agent" and holds off until `done`. |
 | `pg done <plan>` | Lints, then releases the plan to the GUI. Refuses if there are lint errors. |
+| `pg proposal <plan> [--withdraw]` | Shows your pending proposal as the GUI sees it, or withdraws it. |
 | `pg tests <plan>` | The test matrix: one case per outcome, grouped by test target. |
 
 The first `serve` on a machine needs the GUI's dependencies:
@@ -74,8 +79,9 @@ The first `serve` on a machine needs the GUI's dependencies:
 ## Where the plan lives
 
 In the user's project, at `plan-graph/plan.json`. It is a project artifact: commit it.
-`changeset.json` and `changeset.applying.json` appear next to it during review and are
-transient; suggest adding `plan-graph/changeset*.json` to `.gitignore`.
+`changeset.json`, `changeset.applying.json` and `proposal.json` appear next to it during
+review and are transient; suggest adding `plan-graph/changeset*.json` and
+`plan-graph/proposal.json` to `.gitignore`.
 
 ## Workflow
 
@@ -84,8 +90,8 @@ forward:     request  → draft plan.json (all agent/proposed) ─┐
 retroactive: codebase → extract plan.json (code, built, sources)┤
                                                               ▼
                             lint → GUI review → apply changeset → elaborate → lint ─┐
-                                      ▲                                             │
-                                      └──────────── until the user is satisfied ────┘
+                                      ▲    ▲                                        │
+       chat request → propose ────────┘    └──────── until the user is satisfied ───┘
                                                               ▼
                                    implement → one test per outcome → keep plan in sync
 ```
@@ -143,9 +149,58 @@ Don't fix them.
    exits, and end your turn. If you can't run background commands, ask the user to tell
    you once they've sent, then run `pg show`.
 
-If the user answers in chat instead of in the GUI, apply what they say to `plan.json`
-directly (user-requested changes are `origin: "user", status: "confirmed"`). The GUI
-reloads the plan and keeps their unsent edits.
+If the user asks for changes in chat instead of in the GUI, propose them (step 2′) rather
+than writing them into `plan.json`. Write directly only for a small, unambiguous edit with
+no fallout and no decisions involved ("rename Home to Dashboard"), or when the user says
+to just do it; mark those `origin: "user", status: "confirmed"`. The GUI reloads the plan
+and keeps their unsent edits.
+
+### 2′. Propose a change the user asked for in chat
+
+The user describes a change in chat ("drop custom aliases", "add team invites", "make
+errors toasts"). Instead of editing the plan and summarizing in prose, load it into the
+GUI as a **proposal**. They see the diff on the graph, the decisions it changes or puts
+in question, and your open questions in one place, and they accept all of it, part of it
+or none of it.
+
+1. Write a script: `open()` the plan and make the edits with the usual `PlanBuilder`
+   calls, including the fallout (removed outcomes, flags, API fields, other profiles).
+   Record what the change implies as decisions: changed answers via `p.update(decision,
+   { value })`, new ones via `p.decision(...)`, each with a note. Then call
+   `p.propose({...})` **instead of** `p.save()`:
+
+   ```ts
+   p.propose({
+     title: "Drop custom aliases",                 // short name for the change
+     request: "<what the user asked, in their words>",
+     summary: "<what it changes and why, 1–3 sentences>",
+     questions: [{ id: "q.legacy", question: "What happens to links already created with an alias?",
+       options: ["Keep working", "Stop resolving"], recommended: "Keep working",
+       why: "<one line on what each answer changes>", refs: ["api.redirect"] }],
+   });
+   ```
+
+   `propose` leaves `plan.json` alone and writes `plan-graph/proposal.json`. It refuses if
+   the result has lint errors, if `plan.json` changed since you opened it, or if the user
+   has sent edits you haven't applied yet. It prints the decisions the GUI will list with
+   the proposal: the ones it adds, changes or removes, and the ones attached to what it
+   touches ("recheck").
+2. **Questions** are for what you can't settle without the user and what would change
+   the proposal. Give options and a recommendation when there are obvious answers. Don't
+   ask what a decision with alternatives already covers; the user can switch those in one
+   click. A proposal can be questions only, with no edits.
+3. Make sure the GUI is running (step 2.1), then tell the user in one or two lines that
+   the proposal is in the **Proposal** tab, previewed on the graph (green = added,
+   pink = changed, struck through = removed), and name the decision or question that
+   matters most. Then wait for the send (step 2.3).
+4. When they send, `pg show` and `pg apply` print their response first: ops accepted and
+   rejected, answers, and their reply. Accepted ops arrive in the changeset as the user's
+   own edits, marked confirmed, and `apply` removes `proposal.json`. Leave rejected ops
+   out and don't re-propose them unasked. Act on answers and the reply like notes.
+   Unanswered questions: ask in chat, or take your recommendation and say so.
+
+Only one proposal is pending at a time. Proposing again replaces it, which is how you
+revise one after feedback in chat. `pg proposal <plan> --withdraw` drops it.
 
 ### 3. Apply the changeset
 

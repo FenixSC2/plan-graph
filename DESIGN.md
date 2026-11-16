@@ -98,6 +98,21 @@ When the user hits **Send changes**, the GUI emits a changeset (`schema/changese
   "alias taken" outcomes, the 409 response and CLI exit code should also go. The agent
   proposes those follow-on removals as `proposed` changes for review.
 
+## Proposals (agent → GUI)
+
+When the user asks for a change in chat, the agent doesn't edit `plan.json` and describe
+the result in prose. It writes a **proposal** (`schema/proposal.ts`): the same ops as a
+changeset, plus a title, the user's request, a summary and open questions. The GUI shows it
+as a diff. It previews the ops on the graph (added, changed and struck-through items) and
+lists the decisions the proposal adds, changes or removes. It also lists decisions attached
+to what the proposal touches, which might no longer hold, and asks the agent's questions.
+
+The user ticks the ops they want and accepts. Accepted ops are applied to their working
+copy as their own edits, marked confirmed, so they flow back through the normal changeset.
+The response (accepted and rejected op indices, answers, a free-text reply) rides along in
+`Changeset.proposal`. The same op pipeline carries both directions, so a proposal can never
+mean something different from what gets applied.
+
 ## Retroactive mode (existing projects)
 
 The same plan and GUI, filled in from code instead of from a request:

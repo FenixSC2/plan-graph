@@ -2,6 +2,7 @@
 import dagre from "@dagrejs/dagre";
 import { MarkerType, type Edge, type Node } from "@xyflow/react";
 import { layoutGrouped } from "./groups.ts";
+import { isRemoved, type MarkKind } from "../model/proposal.ts";
 import { buildIndex, stateOf, surfaceOf, type Element, type Interaction, type Outcome, type Plan, type PlanIndex, type Ref, type Surface } from "../model/plan.ts";
 
 export interface Row {
@@ -101,8 +102,11 @@ export interface EdgeData extends Record<string, unknown> {
 
 const trunc = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
-export function buildEdges(plan: Plan, idx: PlanIndex, selected: Ref | null, showCalls: boolean, labels = true): Edge<EdgeData>[] {
+export function buildEdges(plan: Plan, idx: PlanIndex, selected: Ref | null, showCalls: boolean, labels = true, marks?: Map<Ref, MarkKind>, focus?: Ref): Edge<EdgeData>[] {
+  /** Edges into / out of the focused surface, for tracing. */
+  const rel = (source: Ref, target: Ref) => (!focus ? "" : source === focus ? " edge-rel edge-out" : target === focus ? " edge-rel edge-in" : "");
   const edges: Edge<EdgeData>[] = [];
+  const pm = (ref: Ref) => (!marks?.size ? "" : isRemoved(marks, ref, idx) ? " edge-pm-remove" : marks.get(ref) ? ` edge-pm-${marks.get(ref)}` : "");
   for (const it of plan.interactions) {
     const source = surfaceOf(it.from);
     if (!idx.has(source)) continue;
@@ -119,12 +123,12 @@ export function buildEdges(plan: Plan, idx: PlanIndex, selected: Ref | null, sho
         targetHandle: "in",
         reconnectable: "target",
         selected: selected === o.id,
-        label: labels || isSel ? trunc(o.when, 30) + (st ? `  → ${st}` : "") : undefined,
-        className: `edge-${status}${isSel ? " edge-selected" : ""}`,
+        label: labels || isSel || (focus && (source === focus || surfaceOf(o.to) === focus)) ? trunc(o.when, 30) + (st ? `  → ${st}` : "") : undefined,
+        className: `edge-${status}${isSel ? " edge-selected" : ""}${pm(o.id)}${rel(source, surfaceOf(o.to))}`,
         labelBgPadding: [6, 3],
         labelBgBorderRadius: 4,
         markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-        zIndex: isSel ? 10 : 0,
+        zIndex: isSel ? 10 : focus && (source === focus || surfaceOf(o.to) === focus) ? 5 : 0,
         data: { outcomeId: o.id, interactionId: it.id, kind: "outcome" },
       });
     }
@@ -141,7 +145,7 @@ export function buildEdges(plan: Plan, idx: PlanIndex, selected: Ref | null, sho
         targetHandle: "in",
         reconnectable: false,
         label: labels ? "calls" : undefined,
-        className: "edge-call" + (selected === it.id ? " edge-selected" : ""),
+        className: "edge-call" + (selected === it.id ? " edge-selected" : "") + pm(it.id) + rel(source, surfaceOf(t.item.from)),
         labelBgPadding: [4, 2],
         labelBgBorderRadius: 4,
         markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },

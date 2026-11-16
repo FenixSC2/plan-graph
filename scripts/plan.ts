@@ -8,6 +8,7 @@
 //   show    <plan>                 show the pending changeset, with labels and a to-do list
 //   apply   <plan> [--rebase]      apply the pending changeset's ops to plan.json; the GUI waits until `done`
 //   done    <plan>                 lint, then release the plan so the GUI picks it up
+//   proposal <plan> [--withdraw]   show your pending proposal (from PlanBuilder.propose()), or withdraw it
 //
 // The model code is shared with the GUI, so ops apply here exactly as they do there.
 import fs from "node:fs";
@@ -17,6 +18,8 @@ import { spawn, spawnSync } from "node:child_process";
 import { buildIndex, labelOf, surfaceOf, type Plan, type PlanIndex, type Ref } from "../gui/src/model/plan.ts";
 import { applyOps, type Changeset, type Op } from "../gui/src/model/diff.ts";
 import { lint, type Profile } from "../gui/src/model/lint.ts";
+import { decisionImpacts } from "../gui/src/model/proposal.ts";
+import type { Proposal } from "../schema/proposal.ts";
 
 const SKILL_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 
@@ -33,7 +36,7 @@ function die(msg: string, code = 1): never {
 }
 
 if (!cmd || cmd === "help" || cmd === "--help") {
-  console.log(fs.readFileSync(new URL(import.meta.url), "utf8").split("\n").slice(0, 12).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
+  console.log(fs.readFileSync(new URL(import.meta.url), "utf8").split("\n").slice(0, 13).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
   process.exit(0);
 }
 if (!planArg) die(`usage: plan.ts ${cmd} <plan.json>`);
@@ -42,6 +45,8 @@ const planPath = path.resolve(planArg);
 const changesetPath = path.join(path.dirname(planPath), "changeset.json");
 // While the agent works, the changeset is renamed: the GUI then holds off adopting plan.json and refuses new sends.
 const applyingPath = path.join(path.dirname(planPath), "changeset.applying.json");
+// The agent's pending proposal (PlanBuilder.propose()). The GUI shows it until the user answers.
+const proposalPath = path.join(path.dirname(planPath), "proposal.json");
 const profilesDir = path.resolve(opt("profiles") ?? path.join(SKILL_DIR, "profiles"));
 
 const hashOf = (text: string) => "sha256:" + crypto.createHash("sha256").update(text).digest("hex");
@@ -61,7 +66,10 @@ const loadProfiles = (plan: Plan): Record<string, Profile> => {
   return out;
 };
 const readJson = (p: string) => (fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : null);
-const readChangeset = (): Changeset | null => readJson(changesetPath) ?? readJson(applyingPath);
+/** While applying, the answered proposal is kept inside changeset.applying.json (proposal.json is gone). */
+type StoredChangeset = Changeset & { proposalSnapshot?: Proposal };
+const readChangeset = (): StoredChangeset | null => readJson(changesetPath) ?? readJson(applyingPath);
+const readProposal = (): Proposal | null => readJson(proposalPath);
 
 const status = (meta: { origin: string; status: string; built?: string } | undefined) =>
   meta ? `[${meta.origin}/${meta.status}${meta.built && meta.built !== "no" ? `, built ${meta.built}` : ""}]` : "";
@@ -160,18 +168,44 @@ function describeOp(op: Op, idx: PlanIndex): string {
   }
 }
 
-function showChangeset(cs: Changeset, plan: Plan) {
+function showChangeset(cs: StoredChangeset, plan: Plan) {
   const idx = buildIndex(plan);
   console.log(`Changeset: ${cs.ops.length} op(s), base ${cs.base.slice(0, 19)}…`);
   if (cs.note) console.log(`\nUser's overall note: ${cs.note}`);
+  const todo: string[] = [];
+
+  const r = cs.proposal;
+  if (r) {
+    const p = cs.proposalSnapshot ?? readProposal();
+    const prop = p?.id === r.id ? p : null;
+    console.log(`\nResponse to your proposal “${r.title}”: accepted ${r.accepted.length}, rejected ${r.rejected.length} of ${r.accepted.length + r.rejected.length} op(s).`);
+    console.log("Accepted ops are included in the ops below, marked confirmed: the user approved them.");
+    if (r.rejected.length) {
+      console.log("Rejected:");
+      for (const i of r.rejected) console.log(`  - ${prop?.ops[i] ? describeOp(prop.ops[i], idx).split("\n")[0] : `op ${i}`}`);
+      todo.push("Rejected proposal ops: leave them out. If an accepted op needed one of them, say so; don't re-propose the same thing unasked");
+    }
+    for (const q of prop?.questions ?? []) {
+      const a = r.answers[q.id];
+      console.log(`Q: ${q.question}\n   ${a ? `A: ${a}` : "(unanswered)"}`);
+      if (a) todo.push(`Act on the answer to “${q.question}”: ${a}`);
+      else todo.push(`Unanswered: “${q.question}”. Ask in chat, or go with your recommendation${q.recommended ? ` (${q.recommended})` : ""} and say so`);
+    }
+    for (const [qid, a] of Object.entries(r.answers)) if (!prop?.questions?.some((q) => q.id === qid)) console.log(`Answer to ${qid}: ${a}`);
+    if (r.reply) { console.log(`User's reply to the proposal: ${r.reply}`); todo.push("Act on the reply to your proposal"); }
+  }
+
   console.log("");
   cs.ops.forEach((op, i) => console.log(`${i + 1}. ${describeOp(op, idx)}`));
 
-  const todo: string[] = [];
+  // Removals the user accepted from your own proposal already carry their fallout.
+  const prop = r && (cs.proposalSnapshot ?? readProposal());
+  const proposed = new Set(r && prop?.id === r.id ? r.accepted.map((i) => prop.ops[i]).filter((o) => o?.op === "remove").map((o) => (o as { ref: Ref }).ref) : []);
+
   for (const op of cs.ops) {
     if (op.op === "add" && (op.value as any).meta?.status === "sketch") todo.push(`Elaborate sketch ${(op.value as any).id}`);
     if (op.op === "comment") todo.push(`Comment on ${op.ref}: “${op.note}” — a question gets an answer in chat (offer bigger changes, don't make them); a request is an edit`);
-    if (op.op === "remove") todo.push(`Check semantic fallout of removing ${op.ref} (related outcomes, decisions, other profiles)`);
+    if (op.op === "remove" && !proposed.has(op.ref)) todo.push(`Check semantic fallout of removing ${op.ref} (related outcomes, decisions, other profiles)`);
     if (op.op !== "comment" && op.op !== "confirm" && op.note) todo.push(`Act on the note for ${"ref" in op ? op.ref : (op.value as any).id}`);
   }
   if (cs.note) todo.push("Act on the overall note");
@@ -187,6 +221,26 @@ async function wait() {
   }
   await new Promise((r) => setTimeout(r, 200)); // let the write finish
   showChangeset(readChangeset()!, readPlan());
+}
+
+function proposal() {
+  const p = readProposal();
+  if (!p) return console.log("No pending proposal.");
+  if (flag("withdraw")) { fs.unlinkSync(proposalPath); return console.log(`Withdrew “${p.title}”. The GUI drops it within a couple of seconds.`); }
+  const plan = readPlan();
+  const idx = buildIndex(plan);
+  const current = hashOf(readText());
+  console.log(`Proposal “${p.title}” (${p.id}), ${p.ops.length} op(s)${p.base !== current ? " — plan.json changed since; the GUI applies it on top and flags ops that no longer apply" : ""}`);
+  if (p.request) console.log(`User asked: ${p.request}`);
+  if (p.summary) console.log(p.summary);
+  console.log("");
+  p.ops.forEach((op, i) => console.log(`${i}. ${describeOp(op, idx)}`));
+  const impacts = decisionImpacts(plan, p);
+  if (impacts.length) {
+    console.log("\nDecisions:");
+    for (const d of impacts) console.log(`  ${d.kind.padEnd(8)} ${d.ref} (${d.decision.impact}): ${d.decision.question}`);
+  }
+  for (const q of p.questions ?? []) console.log(`\nQ ${q.id}: ${q.question}${q.options ? `\n   options: ${q.options.join(" | ")}` : ""}${q.recommended ? `\n   recommended: ${q.recommended}` : ""}`);
 }
 
 function apply() {
@@ -214,9 +268,14 @@ function apply() {
     const loc = nextIdx.get(op.ref);
     if (loc && loc.item.meta.status !== "sketch") loc.item.meta = { ...loc.item.meta, status: "confirmed" };
   }
-  fs.renameSync(changesetPath, applyingPath);
+  // An answered proposal is done: keep a copy with the changeset (for `show`) and drop proposal.json.
+  const prop = readProposal();
+  const stored: StoredChangeset = cs.proposal && prop?.id === cs.proposal.id ? { ...cs, proposalSnapshot: prop } : cs;
+  fs.writeFileSync(applyingPath, JSON.stringify(stored, null, 2) + "\n");
+  fs.unlinkSync(changesetPath);
+  if (stored.proposalSnapshot) fs.unlinkSync(proposalPath);
   fs.writeFileSync(planPath, JSON.stringify(next, null, 2) + "\n");
-  showChangeset(cs, plan);
+  showChangeset(stored, plan);
   if (failed.length) {
     console.log(`\n${failed.length} op(s) did not apply (target missing or id taken):`);
     for (const op of failed) console.log(`  - ${describeOp(op, buildIndex(plan)).split("\n")[0]}`);
@@ -280,6 +339,7 @@ switch (cmd) {
   case "wait": await wait(); break;
   case "apply": apply(); break;
   case "done": done(); break;
+  case "proposal": proposal(); break;
   case "serve": serve(); break;
   default: die(`Unknown command “${cmd}”. Run with --help.`);
 }

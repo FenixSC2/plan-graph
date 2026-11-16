@@ -56,8 +56,8 @@ development build is several times slower, which large plans feel.
 
 ## Agent protocol (file-based)
 
-The dev server is the bridge. It exposes `GET /api/plan`, `GET /api/status` and
-`POST /api/changeset`. Agents drive it with `scripts/plan.ts` (see `SKILL.md`).
+The dev server is the bridge. It exposes `GET /api/plan`, `GET /api/status`,
+`GET /api/proposal` and `POST /api/changeset`. Agents drive it with `scripts/plan.ts` (see `SKILL.md`).
 
 1. **Send** writes `changeset.json` next to `plan.json` (schema: `schema/changeset.ts`).
    Its `base` is the hash of the plan the user edited; the server refuses the send if
@@ -74,6 +74,14 @@ The dev server is the bridge. It exposes `GET /api/plan`, `GET /api/status` and
 Sending again before the agent picks the changeset up overwrites `changeset.json` with a
 superset (it's always the full diff from the last plan the agent wrote).
 
+**Proposals** go the other way. The agent writes `proposal.json` (schema:
+`schema/proposal.ts`, via `PlanBuilder.propose()`) without touching `plan.json`. The GUI
+opens a Proposal tab and previews the ops on the canvas. It lists the decisions the proposal
+changes or touches and shows the agent's questions. Accepting applies the ticked ops to the
+working copy as confirmed user edits. The next Send carries them as normal ops, plus a
+`proposal` response (accepted and rejected indices, answers, reply). `plan.ts apply` deletes
+`proposal.json`.
+
 ## Layout
 
 | Path | What |
@@ -82,10 +90,11 @@ superset (it's always the full diff from the last plan the agent wrote).
 | `src/model/plan.ts` | indexing, refs, structural cascades |
 | `src/model/diff.ts` | changeset = diff(base, edited); `applyOps` (rebase / agent side); per-change revert |
 | `src/model/lint.ts` | lint rules from `DESIGN.md` |
+| `src/model/proposal.ts` | proposal preview / accept, canvas marks, decisions a proposal changes or touches |
 | `src/store.ts` | state, undo, drafts, send / poll / rebase loop |
 | `src/graph/` | React Flow canvas, surface nodes, dagre layout |
 | `src/graph/groups.ts` | group membership, per-group stats, links between groups, grouped layout |
-| `src/ui/` | sidebar tabs, inspector, dialogs |
+| `src/ui/` | sidebar tabs, inspector, dialogs, proposal tab (`ProposalTab.tsx`) |
 | `scripts/model-test.ts` | `npm test`: diff → apply round-trip, revert, cascade checks |
 
 ## Not done yet
