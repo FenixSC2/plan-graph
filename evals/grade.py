@@ -229,7 +229,65 @@ def grade_implements_from_plan(proj):
     shutil.rmtree(tmp, ignore_errors=True)
     return r
 
-GRADERS = {"plans-new-web-app": grade_plans_new_web_app, "documents-existing-notes-app": grade_documents_existing_notes_app, "applies-gui-changeset": grade_applies_gui_changeset, "implements-from-plan": grade_implements_from_plan}
+FIX_PROP = f"{SKILL}/evals/proposes-chat-change"
+def grade_proposes_chat_change(proj):
+    import hashlib, tempfile
+    r = {}
+    fixture = f"{FIX_PROP}/files/plan-graph/plan.json"
+    fixture_text = open(fixture, "rb").read()
+    pp, prp = f"{proj}/plan-graph/plan.json", f"{proj}/plan-graph/proposal.json"
+    prop = load(prp)
+    base_hash = "sha256:" + hashlib.sha256(fixture_text).hexdigest()
+    ops = (prop or {}).get("ops") or []
+    shape = prop is not None and prop.get("id") and prop.get("title") and ops
+    r["01"] = (bool(shape) and prop.get("base") == base_hash,
+               "no proposal.json" if prop is None else f"id {prop.get('id')!r}; title {prop.get('title')!r}; {len(ops)} op(s); base matches: {prop.get('base') == base_hash}")
+    untouched = os.path.exists(pp) and open(pp, "rb").read() == fixture_text
+    left = [f for f in ("changeset.json", "changeset.applying.json") if os.path.exists(f"{proj}/plan-graph/{f}")]
+    r["02"] = (untouched and not left, f"plan.json unchanged: {untouched}; leftover: {left or 'none'}")
+    if not shape:
+        for k in ("03", "04", "05", "06", "07"): r[k] = (False, "no usable proposal")
+        return r
+
+    out = tempfile.mktemp(suffix=".json")
+    pr = subprocess.run(["node", "--experimental-strip-types", f"{FIX_PROP}/preview.ts", fixture, prp, out], capture_output=True, text=True)
+    after = load(out)
+    if pr.returncode != 0 or after is None:
+        for k in ("03", "04"): r[k] = (False, f"preview failed: {(pr.stderr or pr.stdout).strip()[-200:]}")
+    else:
+        failed = pr.stdout.strip()
+        base = load(fixture)
+        bidx = {ref: x for _, ref, x in items(base)}
+        left_alias = []
+        for _, ref, x in items(after):
+            if "alias" not in text_of(x): continue
+            changed = ref not in bidx or own(x) != own(bidx[ref])
+            if not (changed and x.get("meta", {}).get("note")): left_alias.append(ref)
+        r["03"] = (not left_alias, f"alias items left untouched or without a note: {left_alias or 'none'}")
+        ok, last = lint(out)
+        r["04"] = (ok and not failed, f"lint: {last}; ops that failed to apply: {failed or 'none'}")
+        os.unlink(out)
+
+    bad = []
+    for i, op in enumerate(ops):
+        if op.get("op") == "add":
+            m = op.get("value", {}).get("meta", {})
+            if m.get("origin") != "agent" or m.get("status") != "proposed": bad.append(f"add {op['value'].get('id')}: {m.get('origin')}/{m.get('status')}")
+        elif op.get("op") == "update" and op.get("ref") != "$plan":
+            m = op.get("set", {}).get("meta") or {}
+            if m.get("status") != "proposed" or not (m.get("note") or op.get("note")): bad.append(f"update {op.get('ref')}: no proposed status + note")
+        elif op.get("op") == "remove" and not op.get("note"): bad.append(f"remove {op.get('ref')}: no note")
+    r["05"] = (not bad, f"{bad[:5] or 'all flagged'}")
+
+    qs = prop.get("questions") or []
+    base_dec = {d["id"] for d in load(fixture)["decisions"]}
+    dec_ops = [op for op in ops if (op.get("op") == "add" and op.get("kind") == "decision") or (op.get("op") in ("update", "remove") and op.get("ref") in base_dec)]
+    r["06"] = (bool(dec_ops or qs), f"{len(dec_ops)} decision op(s), {len(qs)} question(s)")
+    qbad = [q.get("id", "?") for q in qs if not q.get("id") or not q.get("question") or (q.get("recommended") and q.get("recommended") not in (q.get("options") or []))]
+    r["07"] = (len(qs) <= 3 and not qbad, f"{len(qs)} question(s); malformed: {qbad or 'none'}")
+    return r
+
+GRADERS = {"plans-new-web-app": grade_plans_new_web_app, "documents-existing-notes-app": grade_documents_existing_notes_app, "applies-gui-changeset": grade_applies_gui_changeset, "implements-from-plan": grade_implements_from_plan, "proposes-chat-change": grade_proposes_chat_change}
 
 for case, fn in GRADERS.items():
     if not os.path.exists(f"{IT}/{case}/eval_metadata.json"): continue

@@ -1,0 +1,298 @@
+{
+  "version": 1,
+  "project": {
+    "name": "Link Shortener",
+    "summary": "Shorten URLs from a web page or a CLI; both use one HTTP API. Anyone can view click stats for a link."
+  },
+  "mode": "forward",
+  "profiles": ["web", "api", "cli"],
+  "entryPoints": ["web.home", "api.redirect", "cli.create", "cli.stats"],
+  "groups": [
+    { "id": "g.create", "name": "Create link", "meta": { "origin": "agent", "status": "proposed" } },
+    { "id": "g.stats", "name": "Stats", "meta": { "origin": "agent", "status": "proposed" } }
+  ],
+
+  "surfaces": [
+    {
+      "id": "web.home", "profile": "web", "kind": "page", "name": "Home", "address": "/", "group": "g.create",
+      "states": [
+        { "id": "idle", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "submitting", "description": "Button disabled, spinner in button", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "error", "description": "Inline message under the input", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "elements": [
+        { "id": "web.home.url-input", "kind": "input", "label": "Long URL", "spec": { "type": "url", "required": true, "placeholder": "https://…" }, "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "web.home.alias-input", "kind": "input", "label": "Custom alias (optional)", "spec": { "pattern": "^[a-z0-9-]{3,32}$" }, "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "web.home.shorten-btn", "kind": "button", "label": "Shorten", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "web.result", "profile": "web", "kind": "page", "name": "Result", "address": "/created/:code", "group": "g.create",
+      "elements": [
+        { "id": "web.result.short-url", "kind": "text", "label": "Short URL", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "web.result.copy-btn", "kind": "button", "label": "Copy", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "web.result.stats-link", "kind": "link", "label": "View stats", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "web.result.new-btn", "kind": "button", "label": "Shorten another", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "web.stats", "profile": "web", "kind": "page", "name": "Link stats", "address": "/stats/:code", "group": "g.stats",
+      "states": [
+        { "id": "loading", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "ready", "description": "Total clicks + clicks per day, last 30 days", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "empty", "description": "Link exists, zero clicks yet", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "error", "description": "Unknown code or network failure", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "elements": [
+        { "id": "web.stats.home-link", "kind": "link", "label": "Shorten a link", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "web.not-found", "profile": "web", "kind": "page", "name": "Link not found", "address": "(served by redirect miss)",
+      "elements": [
+        { "id": "web.not-found.home-link", "kind": "link", "label": "Shorten a link", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+
+    {
+      "id": "api.create-link", "profile": "api", "kind": "endpoint", "name": "Create link", "address": "POST /api/links", "group": "g.create",
+      "elements": [
+        { "id": "api.create-link.url", "kind": "body-field", "label": "url", "spec": { "type": "string", "required": true }, "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "api.create-link.alias", "kind": "body-field", "label": "alias", "spec": { "type": "string", "required": false }, "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "terminal": true,
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "api.redirect", "profile": "api", "kind": "endpoint", "name": "Follow short link", "address": "GET /:code",
+      "elements": [
+        { "id": "api.redirect.code", "kind": "path-param", "label": "code", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "api.get-stats", "profile": "api", "kind": "endpoint", "name": "Get stats", "address": "GET /api/links/:code/stats", "group": "g.stats",
+      "terminal": true,
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+
+    {
+      "id": "cli.create", "profile": "cli", "kind": "command", "name": "short create", "address": "short create <url> [--alias <a>] [--json]", "group": "g.create",
+      "elements": [
+        { "id": "cli.create.url", "kind": "arg", "label": "url", "spec": { "required": true }, "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "cli.create.alias", "kind": "flag", "label": "--alias", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "cli.create.json", "kind": "flag", "label": "--json", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "cli.create.api-url", "kind": "env-var", "label": "SHORT_API_URL", "spec": { "default": "https://sho.rt" }, "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "terminal": true,
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "cli.stats", "profile": "cli", "kind": "command", "name": "short stats", "address": "short stats <code> [--json]", "group": "g.stats",
+      "elements": [
+        { "id": "cli.stats.code", "kind": "arg", "label": "code", "spec": { "required": true }, "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "cli.stats.json", "kind": "flag", "label": "--json", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "terminal": true,
+      "meta": { "origin": "agent", "status": "proposed" }
+    }
+  ],
+
+  "interactions": [
+    {
+      "id": "web.home.shorten", "from": "web.home",
+      "trigger": { "kind": "submit", "element": "web.home.shorten-btn", "description": "Click Shorten or press Enter in the URL field" },
+      "effects": [{ "kind": "calls", "target": "api.create-link.request" }],
+      "outcomes": [
+        { "id": "web.home.shorten.ok", "when": "API returns 201", "to": "web.result", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "web.home.shorten.invalid", "when": "URL fails client or server validation", "to": "web.home#error", "result": "\"Enter a valid http(s) URL\"", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "web.home.shorten.taken", "when": "Alias already in use (409)", "to": "web.home#error", "result": "\"That alias is taken\"", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "web.home.shorten.failed", "when": "Network error, 429 or 5xx", "to": "web.home#error", "result": "\"Something went wrong, try again\"", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "web.result.copy", "from": "web.result",
+      "trigger": { "kind": "click", "element": "web.result.copy-btn", "description": "Click Copy" },
+      "outcomes": [
+        { "id": "web.result.copy.ok", "when": "Clipboard write succeeds", "to": null, "result": "Button label changes to \"Copied\" for 2s", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "web.result.copy.denied", "when": "Clipboard permission denied", "to": null, "result": "Short URL text is selected so the user can copy manually", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "web.result.view-stats", "from": "web.result",
+      "trigger": { "kind": "click", "element": "web.result.stats-link", "description": "Click View stats" },
+      "outcomes": [
+        { "id": "web.result.view-stats.go", "when": "always", "to": "web.stats", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "web.result.new", "from": "web.result",
+      "trigger": { "kind": "click", "element": "web.result.new-btn", "description": "Click Shorten another" },
+      "outcomes": [
+        { "id": "web.result.new.go", "when": "always", "to": "web.home#idle", "result": "Inputs cleared", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "web.stats.load", "from": "web.stats#loading",
+      "trigger": { "kind": "on-enter", "description": "Page opens" },
+      "effects": [{ "kind": "calls", "target": "api.get-stats.request" }],
+      "outcomes": [
+        { "id": "web.stats.load.ok", "when": "Link has clicks", "to": "web.stats#ready", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "web.stats.load.empty", "when": "Link has zero clicks", "to": "web.stats#empty", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "web.stats.load.missing", "when": "Unknown code (404) or network failure", "to": "web.stats#error", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "web.stats.home", "from": "web.stats",
+      "trigger": { "kind": "click", "element": "web.stats.home-link", "description": "Click Shorten a link" },
+      "outcomes": [
+        { "id": "web.stats.home.go", "when": "always", "to": "web.home", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "web.not-found.home", "from": "web.not-found",
+      "trigger": { "kind": "click", "element": "web.not-found.home-link", "description": "Click Shorten a link" },
+      "outcomes": [
+        { "id": "web.not-found.home.go", "when": "always", "to": "web.home", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+
+    {
+      "id": "api.create-link.request", "from": "api.create-link",
+      "trigger": { "kind": "request", "description": "POST JSON { url, alias? }" },
+      "effects": [{ "kind": "writes", "target": "links table" }],
+      "outcomes": [
+        { "id": "api.create-link.request.created", "when": "Valid URL, alias free or omitted", "to": null, "result": "201 { code, shortUrl }", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "api.create-link.request.invalid", "when": "URL not http(s), or alias fails pattern", "to": null, "result": "400 { error: { code: \"invalid_input\", field, message } }", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "api.create-link.request.taken", "when": "Alias already exists", "to": null, "result": "409 { error: { code: \"alias_taken\" } }", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "api.create-link.request.limited", "when": "More than 30 creates/min from one IP", "to": null, "result": "429 with Retry-After", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "api.redirect.request", "from": "api.redirect",
+      "trigger": { "kind": "request", "description": "Browser follows a short link" },
+      "effects": [{ "kind": "writes", "target": "clicks table" }],
+      "outcomes": [
+        { "id": "api.redirect.request.hit", "when": "Code exists", "to": null, "result": "302 to the long URL; click recorded", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "api.redirect.request.miss", "when": "Code unknown", "to": "web.not-found", "result": "404 with the Not Found page", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "api.get-stats.request", "from": "api.get-stats",
+      "trigger": { "kind": "request", "description": "GET stats for a code" },
+      "effects": [{ "kind": "reads", "target": "clicks table" }],
+      "outcomes": [
+        { "id": "api.get-stats.request.ok", "when": "Code exists", "to": null, "result": "200 { total, daily: [{ date, count }] }", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "api.get-stats.request.missing", "when": "Code unknown", "to": null, "result": "404 { error: { code: \"not_found\" } }", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+
+    {
+      "id": "cli.create.invoke", "from": "cli.create",
+      "trigger": { "kind": "invoke", "description": "Run short create <url>" },
+      "effects": [{ "kind": "calls", "target": "api.create-link.request" }],
+      "outcomes": [
+        { "id": "cli.create.invoke.ok", "when": "API returns 201", "to": null, "result": "exit 0; stdout: short URL (or JSON with --json)", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "cli.create.invoke.usage", "when": "Missing or invalid URL argument", "to": null, "result": "exit 2; stderr: usage line", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "cli.create.invoke.rejected", "when": "API returns 400/409/429", "to": null, "result": "exit 1; stderr: API error message", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "cli.create.invoke.network", "when": "API unreachable or 5xx", "to": null, "result": "exit 3; stderr: \"could not reach <SHORT_API_URL>\"", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "cli.stats.invoke", "from": "cli.stats",
+      "trigger": { "kind": "invoke", "description": "Run short stats <code>" },
+      "effects": [{ "kind": "calls", "target": "api.get-stats.request" }],
+      "outcomes": [
+        { "id": "cli.stats.invoke.ok", "when": "Code exists", "to": null, "result": "exit 0; stdout: total + 7-day table (or JSON with --json)", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "cli.stats.invoke.missing", "when": "Code unknown", "to": null, "result": "exit 1; stderr: \"no such link\"", "meta": { "origin": "agent", "status": "proposed" } },
+        { "id": "cli.stats.invoke.network", "when": "API unreachable or 5xx", "to": null, "result": "exit 3", "meta": { "origin": "agent", "status": "proposed" } }
+      ],
+      "meta": { "origin": "agent", "status": "proposed" }
+    }
+  ],
+
+  "decisions": [
+    {
+      "id": "d.redirect-status", "attachedTo": ["api.redirect.request.hit"],
+      "question": "Which redirect status do short links return?",
+      "value": "302 Found",
+      "alternatives": ["301 Moved Permanently", "307 Temporary Redirect"],
+      "rationale": "Browsers cache 301s and skip the server on repeat visits, so click stats would undercount.",
+      "impact": "high", "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "d.auth", "attachedTo": [], "checklistKey": "auth",
+      "question": "Do users need an account to create links or view stats?",
+      "value": "No accounts. Anyone can create links, and anyone with the code can view its stats.",
+      "alternatives": ["Accounts required to create", "Stats visible only to the creator"],
+      "impact": "high", "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "d.code-format", "attachedTo": ["api.create-link.request.created"],
+      "question": "What do generated codes look like?",
+      "value": "7 characters, lowercase base36",
+      "alternatives": ["6 characters base62 (case-sensitive)", "Sequential IDs"],
+      "rationale": "Case-insensitive codes survive being typed or spoken.",
+      "impact": "medium", "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "d.duplicate-urls", "attachedTo": ["api.create-link.request"], "checklistKey": "idempotency",
+      "question": "Shortening the same URL twice: same code or new code?",
+      "value": "New code each time",
+      "alternatives": ["Return the existing code"],
+      "impact": "medium", "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "d.rate-limit", "attachedTo": ["api.create-link.request.limited"], "checklistKey": "rate-limit",
+      "question": "How are creates rate limited?",
+      "value": "30/min per IP; redirects and stats unlimited",
+      "impact": "medium", "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "d.expiry", "attachedTo": [],
+      "question": "Do links expire?",
+      "value": "Never",
+      "alternatives": ["After 1 year of no clicks", "User-chosen expiry"],
+      "impact": "medium", "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "d.api-errors", "attachedTo": [], "checklistKey": "error-shape",
+      "question": "API error body shape?",
+      "value": "{ error: { code, message, field? } }",
+      "impact": "low", "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "d.web-errors", "attachedTo": ["web.home#error", "web.stats#error"], "checklistKey": "error-presentation",
+      "question": "How are web errors shown?",
+      "value": "Inline on the surface where the action happened; no toasts",
+      "impact": "low", "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "d.cli-exit-codes", "attachedTo": ["cli.create.invoke", "cli.stats.invoke"], "checklistKey": "exit-codes",
+      "question": "CLI exit codes?",
+      "value": "0 ok · 1 rejected by API · 2 usage error · 3 network/server error",
+      "impact": "low", "meta": { "origin": "agent", "status": "proposed" }
+    },
+    {
+      "id": "d.cli-streams", "attachedTo": ["cli.create", "cli.stats"], "checklistKey": "streams",
+      "question": "What goes to stdout vs stderr?",
+      "value": "Only the result to stdout (pipe-friendly); all errors and hints to stderr",
+      "impact": "low", "meta": { "origin": "agent", "status": "proposed" }
+    }
+  ]
+}

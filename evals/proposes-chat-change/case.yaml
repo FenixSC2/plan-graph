@@ -1,0 +1,13 @@
+schema_version: "1.1"
+name: proposes-chat-change
+context:
+  scaffold_script: place-files.sh
+expected_outcome: |
+  The user asks in chat to drop custom aliases. Instead of editing plan-graph/plan.json, the agent
+  writes plan-graph/proposal.json (via PlanBuilder.propose()) whose ops remove every alias item and
+  its fallout across web, API and CLI (alias input, alias-taken outcomes, the 409, the alias body
+  field, the CLI --alias flag, alias wording in the API request and outcomes and the CLI usage
+  line). Applied, the proposal lints clean. Added and changed items are agent/proposed with notes.
+  The proposal raises at least one decision or question the change implies. plan.json is byte-for-byte
+  unchanged, and the reply points the user to the Proposal tab in the editor instead of claiming
+  the change is made.
