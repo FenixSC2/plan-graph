@@ -113,6 +113,20 @@ The response (accepted and rejected op indices, answers, a free-text reply) ride
 `Changeset.proposal`. The same op pipeline carries both directions, so a proposal can never
 mean something different from what gets applied.
 
+## Focus (agent ⇄ user)
+
+The Review tab lists every unreviewed item, which on a real plan is hundreds. **Focus**
+(`schema/focus.ts`) is the short list the agent and the user are actually talking about: a
+question the agent can't settle alone, a change it suggests, or a finding the user should
+see. Each item carries its own breakdown: what is true today, the options with their pros,
+cons and what each would change, and the agent's recommendation.
+
+Only the agent writes `focus.json` (`PlanBuilder.focus()`, `followUp()`, `resolveFocus()`).
+The user's answers travel in `Changeset.focus`, each with the fingerprint of the item as the
+user saw it. `plan.ts apply` appends them to the item's thread. The last turn in the thread
+says whose move it is, so a topic can go several rounds and keep its history. A proposal's
+questions belong to that one proposal; a focus item lasts until it's resolved.
+
 ## Retroactive mode (existing projects)
 
 The same plan and GUI, filled in from code instead of from a request:

@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "plan-graph",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "See and edit every decision your AI coding agent is about to make, as a graph of screens, commands and endpoints, before it writes code. Makes large projects readable at a glance with a grouped map. Review it in a local editor; the plan drives the build and one test per outcome.",
   "author": {
     "name": "Nathan Barth",
