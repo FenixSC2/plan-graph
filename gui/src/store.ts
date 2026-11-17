@@ -165,7 +165,10 @@ export function usePlanStore() {
   /** Fetch focus.json. Answers to an item the agent has since changed are dropped; say what's new. */
   const loadFocus = useCallback(async (initial = false) => {
     const r = await fetch("/api/focus");
-    const { focus: f } = (await r.json()) as { focus: FocusFile | null };
+    const { focus: f, sig } = (await r.json()) as { focus: FocusFile | null; sig?: string | null };
+    // The baseline is what was loaded, not what the next poll sees: a change written in
+    // between would otherwise be taken as already shown.
+    focusFileSig.current = sig ?? null;
     const file = f && Array.isArray(f.items) ? f : null;
     const prev = latest.current.focus;
     setFocus(file);
@@ -228,8 +231,8 @@ export function usePlanStore() {
         const finished = wasPending.current && !s.changesetPending;
         wasPending.current = s.changesetPending;
         if (finished && s.hash === latest.current.loaded?.hash && latest.current.sent) setSent(null);
-        if (focusFileSig.current === "unset") focusFileSig.current = s.focusSig ?? null;
-        else if ((s.focusSig ?? null) !== focusFileSig.current) { focusFileSig.current = s.focusSig ?? null; await loadFocus(); }
+        // "unset" until the first loadFocus() returns; it then holds the sig of what was loaded.
+        if (focusFileSig.current !== "unset" && (s.focusSig ?? null) !== focusFileSig.current) await loadFocus();
         if ((s.proposalId ?? null) !== (latest.current.proposal?.id ?? null)) await loadProposal(latest.current.loaded!.planPath);
         // While the agent is mid-apply, plan.json is half-finished: wait for it to finish.
         if (s.hash !== latest.current.loaded?.hash && !s.agentWorking) await adoptNewBase();

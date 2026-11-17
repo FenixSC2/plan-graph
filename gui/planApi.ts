@@ -3,7 +3,7 @@
 //   GET  /api/plan       → { plan, hash, profiles, planPath }
 //   GET  /api/status     → { hash, changesetPending, agentWorking, proposalId, focusSig, planPath }
 //   GET  /api/proposal   → { proposal } — the agent's pending proposal (proposal.json), or null
-//   GET  /api/focus      → { focus } — the agent's focus list (focus.json), or null
+//   GET  /api/focus      → { focus, sig } — the agent's focus list (focus.json) or null, and its focusSig
 //   POST /api/changeset  → writes changeset.json next to plan.json
 // The agent renames changeset.json to changeset.applying.json while it works (so the GUI
 // neither adopts a half-finished plan nor sends again), then deletes it when done.
@@ -21,9 +21,13 @@ export function planApi(opts: { planPath: string; profilesDir: string }): Plugin
     catch { return null; } // mid-write or malformed: treat as absent until the next poll
   };
   const focusPath = path.join(path.dirname(opts.planPath), "focus.json");
-  const readFocus = () => {
-    try { return fs.existsSync(focusPath) ? JSON.parse(fs.readFileSync(focusPath, "utf8")) : null; }
-    catch { return null; } // mid-write: the next poll picks it up
+  /** focus.json with the fingerprint of the exact text read, so the GUI's baseline matches what it shows. */
+  const readFocus = (): { focus: unknown; sig: string | null } => {
+    try {
+      if (!fs.existsSync(focusPath)) return { focus: null, sig: null };
+      const text = fs.readFileSync(focusPath, "utf8");
+      return { focus: JSON.parse(text), sig: hashOf(text) };
+    } catch { return { focus: null, sig: "unreadable" }; } // mid-write: differs from any real sig, so the next poll retries
   };
   /** Changes whenever focus.json does; cheap enough to compute per poll (the file is small). */
   const focusSig = () => {
@@ -78,7 +82,7 @@ export function planApi(opts: { planPath: string; profilesDir: string }): Plugin
         return json(res, 200, { proposal: readProposal() });
       }
       if (req.method === "GET" && url === "/api/focus") {
-        return json(res, 200, { focus: readFocus() });
+        return json(res, 200, readFocus());
       }
       if (req.method === "POST" && url === "/api/changeset") {
         let body = "";

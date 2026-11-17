@@ -318,7 +318,9 @@ function apply() {
   fs.writeFileSync(applyingPath, JSON.stringify(stored, null, 2) + "\n");
   fs.unlinkSync(changesetPath);
   if (stored.proposalSnapshot) fs.unlinkSync(proposalPath);
-  fs.writeFileSync(planPath, JSON.stringify(next, null, 2) + "\n");
+  // Leave plan.json alone on an answers-only round: rewriting it could change its formatting,
+  // which the GUI would report as a plan update.
+  if (cs.ops.length) fs.writeFileSync(planPath, JSON.stringify(next, null, 2) + "\n");
   // Focus answers go into their items' threads: the history stays with the topic, and the GUI
   // shows each answered item as waiting for you.
   const file = readFocus();
