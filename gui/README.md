@@ -40,6 +40,10 @@ skips ports held by another plan's editor.
 
 ## What you can do
 
+- **Resize**: drag the edge between a side pane and the graph to make it wider or narrower;
+  drag it nearly shut to collapse it and give the graph the room, then drag the grip back out
+  (or focus the edge and press Enter). Double-click an edge to reset. With the edge focused,
+  ←/→ resize it (Shift for bigger steps). Widths are remembered in this browser.
 - **Navigate**: scroll or swipe to pan, pinch or ⌘/Ctrl-scroll to zoom (both eased; reduced
   motion is respected). Double-click doesn't zoom.
 - **Trace**: select an arrow for a trace bar (source ⟵ condition ⟶ destination; click an end to

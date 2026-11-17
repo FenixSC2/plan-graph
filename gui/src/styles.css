@@ -79,8 +79,9 @@ a { color: var(--accent); cursor: pointer; }
 
 /* ── layout ───────────────────────────── */
 .app {
+  position: relative;
   display: grid;
-  grid-template-columns: 320px 1fr 360px;
+  grid-template-columns: 320px 1fr 360px; /* overridden inline by the pane widths */
   grid-template-rows: 52px 1fr;
   height: 100vh;
 }
@@ -664,3 +665,24 @@ input[type="checkbox"] { width: auto; accent-color: var(--accent); }
 .fc-toggle { display: block; text-align: left; }
 .fc-send:disabled { opacity: 0.5; }
 
+/* ── resizable panes ───────────── */
+.splitter {
+  position: absolute; top: 52px; bottom: 0; width: 8px; z-index: 20;
+  cursor: col-resize; touch-action: none; outline: none;
+  display: flex; justify-content: center;
+}
+.splitter-line { width: 2px; height: 100%; background: transparent; transition: background 120ms ease; }
+.splitter:hover .splitter-line, .splitter.is-dragging .splitter-line { background: var(--accent); }
+.splitter:focus-visible .splitter-line { background: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.splitter-grip {
+  position: absolute; top: 50%; transform: translateY(-50%); width: 6px; height: 44px; border-radius: 3px;
+  background: var(--border-strong); pointer-events: none;
+}
+.splitter-left.is-collapsed .splitter-grip { left: 1px; }
+.splitter-right.is-collapsed .splitter-grip { right: 1px; }
+.splitter.is-collapsed:hover .splitter-grip { background: var(--accent); }
+body.is-resizing { cursor: col-resize; user-select: none; }
+body.is-resizing .canvas { pointer-events: none; }
+.app[data-left-collapsed] .sidebar,
+.app[data-right-collapsed] .rightpane { visibility: hidden; border: 0; }
+@media (prefers-reduced-motion: reduce) { .splitter-line { transition: none; } }
