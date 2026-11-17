@@ -115,3 +115,43 @@ console.log(`OK — ${changes.length} changes, ${cs.ops.length} ops`);
   assert.ok(toggleOp([], dependent, reqA).includes(addSurf), "ticking an op ticks what it needs");
   console.log(`OK — proposal dependencies: ${removeOps.length} cascaded removals, ${addOps.length} dependent adds`);
 }
+
+// ── focus: fingerprints, whose turn, answers recorded in threads, checks ──
+{
+  const { focusSig, turnOf, sortFocus, recordResponses, checkFocusItem, describeAnswer } = await import("../src/model/focus.ts");
+  type FocusFile = import("../src/model/focus.ts").FocusFile;
+  const file: FocusFile = {
+    version: 1,
+    items: [
+      { id: "f.low", kind: "finding", title: "Low", impact: "low", status: "open" },
+      { id: "f.redirect", kind: "question", title: "301 or 302?", impact: "high", status: "open", refs: ["d.redirect-status"],
+        options: [{ id: "302", label: "302 Found" }, { id: "301", label: "301 Moved Permanently" }], recommended: "302" },
+      { id: "f.done", kind: "question", title: "Done", status: "resolved", resolution: "Settled" },
+    ],
+  };
+  const idx = buildIndex(base);
+  assert.deepEqual(file.items.flatMap((i) => checkFocusItem(i, idx)), [], "valid items pass");
+  assert.match(checkFocusItem({ ...file.items[1], recommended: "307" }, idx).join(), /recommended/, "recommendation must be an option");
+  assert.match(checkFocusItem({ ...file.items[1], refs: ["web.nowhere"] }, idx).join(), /not in the plan/, "refs must exist");
+
+  assert.deepEqual(sortFocus(file.items).map((i) => i.id), ["f.redirect", "f.low", "f.done"], "open by impact, resolved last");
+  const sig = focusSig(file.items[1]);
+  assert.equal(focusSig({ ...file.items[1], updatedAt: "later" }), sig, "timestamps don't change the fingerprint");
+  assert.equal(turnOf(file.items[1]), "user");
+
+  const unmatched = recordResponses(file, [
+    { id: "f.redirect", title: "301 or 302?", sig, choice: "301", text: "  links never change  " },
+    { id: "f.done", title: "Done", sig: "x", text: "late" },
+  ], "2026-01-01T00:00:00Z");
+  assert.deepEqual(unmatched.map((r) => r.id), ["f.done"], "answers to resolved items are reported, not recorded");
+  const it = file.items[1];
+  assert.deepEqual(it.thread, [{ from: "user", choice: "301", choiceLabel: "301 Moved Permanently", text: "links never change", at: "2026-01-01T00:00:00Z" }]);
+  assert.equal(turnOf(it), "agent", "after the user's answer it's the agent's turn");
+  assert.notEqual(focusSig(it), sig, "a recorded answer changes the fingerprint, so the GUI drops the sent draft");
+  assert.equal(describeAnswer(it, it.thread![0] as any), "301 Moved Permanently — links never change");
+  it.options = [{ id: "head", label: "Count HEAD" }];
+  assert.equal(describeAnswer(it, it.thread![0] as any), "301 Moved Permanently — links never change", "the label survives new options");
+  it.thread!.push({ from: "agent", text: "OK" });
+  assert.equal(turnOf(it), "user", "the agent's follow-up hands it back");
+  console.log("OK — focus");
+}

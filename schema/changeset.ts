@@ -2,6 +2,7 @@
 
 import type { Ref, Surface, State, Element, Interaction, Outcome, Decision, Group } from "./plan";
 import type { ProposalResponse } from "./proposal";
+import type { FocusResponse } from "./focus";
 
 export interface Changeset {
   /** Hash of the plan.json the user was editing. Agent must rebase/ask if it no longer matches. */
@@ -14,6 +15,8 @@ export interface Changeset {
    * answered it in this send. Ops they accepted are already included in `ops` above.
    */
   proposal?: ProposalResponse;
+  /** The user's answers to items in focus (schema/focus.ts), one per item they answered. */
+  focus?: FocusResponse[];
 }
 
 export type Op = AddOp | UpdateOp | RemoveOp | ConfirmOp | CommentOp;

@@ -41,6 +41,22 @@
 //       options: ["Keep working", "Redirect to a random code"], recommended: "Keep working",
 //       refs: ["api.redirect"] }] });
 //
+// Putting a topic in focus: a question you need answered, a change you suggest, or a finding the
+// user should see, with its breakdown and options. Written straight to plan-graph/focus.json (no
+// save() needed); the GUI shows it in the Focus tab and the user's answer arrives in the next
+// changeset. Use it instead of ending a chat reply with a question that needs a breakdown:
+//
+//   const p = open("plan-graph/plan.json");
+//   p.focus({ id: "f.redirect", kind: "question", title: "Should short links redirect with 301 or 302?",
+//     summary: "Browsers cache 301s, which would undercount clicks.", impact: "high",
+//     context: ["The plan says 302 today (d.redirect-status)."], refs: ["d.redirect-status"],
+//     options: [{ id: "302", label: "302 Found", pros: ["Every click is counted"], cons: ["One extra hop for repeat visitors"] },
+//               { id: "301", label: "301 Moved Permanently", changes: "d.redirect-status → 301" }],
+//     recommended: "302", rationale: "Click stats are the product." });
+//   // next round, after `plan.ts apply` recorded the user's answer in the item's thread:
+//   p.followUp("f.redirect", "302 it is. Should HEAD requests count as clicks?", { options: [...] });
+//   p.resolveFocus("f.redirect", "302 kept; d.redirect-status confirmed.");
+//
 // Meta is filled in for you: new items get the current defaults (agent/proposed, or set
 // p.defaults({ origin: "code", status: "confirmed", built: "yes" }) for extraction), plus the
 // `note` and `sources` you pass. `update` and `remove` record why; `update` sets the item's
@@ -56,6 +72,12 @@ import { lint, type Profile } from "../gui/src/model/lint.ts";
 import { diffPlans, toChangeset } from "../gui/src/model/diff.ts";
 import { decisionImpacts, opRef } from "../gui/src/model/proposal.ts";
 import type { Proposal, ProposalQuestion } from "../schema/proposal.ts";
+import { checkFocusItem, emptyFocus, type FocusFile, type FocusItem } from "../gui/src/model/focus.ts";
+
+/** What you pass to focus(): an item without its bookkeeping. */
+export type FocusSpec = Omit<FocusItem, "status" | "thread" | "createdAt" | "updatedAt" | "resolution"> & { status?: FocusItem["status"] };
+/** What a follow-up may change for the next round. */
+export type FocusRevision = Partial<Pick<FocusItem, "title" | "summary" | "context" | "options" | "recommended" | "rationale" | "refs" | "impact" | "kind">>;
 
 const SKILL_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 
@@ -323,6 +345,70 @@ export class PlanBuilder {
     }
     console.log("The GUI shows it in the Proposal tab within a couple of seconds. Wait for the user's send (`plan.ts wait`).");
     return proposal;
+  }
+
+  // ------------------------------------------------------------ focus
+
+  private focusPath(): string {
+    if (!this.file) throw new Error("focus: open the plan with open(file) first, so focus.json lands next to it");
+    return path.join(path.dirname(path.resolve(this.file)), "focus.json");
+  }
+  private readFocusFile(): FocusFile {
+    const f = this.focusPath();
+    return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : emptyFocus();
+  }
+  private writeFocusFile(file: FocusFile, item: FocusItem, what: string): void {
+    const problems = checkFocusItem(item, buildIndex(this.plan));
+    if (problems.length) throw new Error(`focus: ${problems.join("; ")}`);
+    fs.writeFileSync(this.focusPath(), JSON.stringify(file, null, 2) + "\n");
+    const open = file.items.filter((i) => i.status === "open").length;
+    console.log(`Focus ${what}: ${item.id} “${item.title}”. ${open} open item(s); the GUI shows them in the Focus tab within a couple of seconds.`);
+  }
+
+  /**
+   * Put a topic in focus, or replace one with the same id (its thread is kept). Ask in focus
+   * when an answer needs a breakdown; keep it to what changes the plan or the build.
+   */
+  focus(spec: FocusSpec): FocusItem {
+    const file = this.readFocusFile();
+    const now = new Date().toISOString();
+    const prev = file.items.find((i) => i.id === spec.id);
+    const item: FocusItem = {
+      ...spec,
+      status: spec.status ?? "open",
+      ...(prev?.thread?.length ? { thread: prev.thread } : {}),
+      createdAt: prev?.createdAt ?? now,
+      updatedAt: now,
+    };
+    file.items = prev ? file.items.map((i) => (i.id === spec.id ? item : i)) : [...file.items, item];
+    this.writeFocusFile(file, item, prev ? "replaced" : "added");
+    return item;
+  }
+
+  /** Reply on an item after the user answered: your turn in its thread, plus any new options or context. */
+  followUp(id: string, text: string, revise: FocusRevision = {}): FocusItem {
+    const file = this.readFocusFile();
+    const item = file.items.find((i) => i.id === id);
+    if (!item) throw new Error(`followUp: nothing in focus with id ${id}`);
+    const now = new Date().toISOString();
+    const prevRecommended = item.recommended;
+    Object.assign(item, revise, { status: "open", updatedAt: now });
+    if (revise.options && !revise.recommended && item.recommended && !revise.options.some((o) => o.id === item.recommended)) delete item.recommended;
+    // A rationale belongs to the recommendation it explains.
+    if (item.recommended !== prevRecommended && !revise.rationale) delete item.rationale;
+    (item.thread ??= []).push({ from: "agent", text, at: now });
+    this.writeFocusFile(file, item, "followed up");
+    return item;
+  }
+
+  /** Settle an item: one line on what was decided and where it landed in the plan. */
+  resolveFocus(id: string, resolution: string): FocusItem {
+    const file = this.readFocusFile();
+    const item = file.items.find((i) => i.id === id);
+    if (!item) throw new Error(`resolveFocus: nothing in focus with id ${id}`);
+    Object.assign(item, { status: "resolved", resolution, updatedAt: new Date().toISOString() });
+    this.writeFocusFile(file, item, "resolved");
+    return item;
   }
 
   /** Write plan.json (2-space JSON) and lint it. Exits 1 if lint finds errors. */

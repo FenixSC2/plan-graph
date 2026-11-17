@@ -11,7 +11,7 @@ description: >-
   or edge cases written down for sign-off; or wants a large, complex or unfamiliar codebase made
   easy to see and navigate, mapped or audited (dead routes, missing error handling), even if they
   never say "graph" or "plan". Also use it when the user mentions the plan graph, the graph
-  editor, hitting Send, or a plan-graph/plan.json, changeset.json or proposal.json.
+  editor, hitting Send, the Focus tab, or a JSON file in plan-graph/.
 ---
 
 # Plan Graph
@@ -32,6 +32,11 @@ out by reading code. This skill makes those choices explicit up front.
 - **Changes asked for in chat are proposed, not just made.** You load them into the GUI
   as a proposal: a diff the user can see on the graph, with the decisions it changes and
   the questions it raises, to accept in whole or in part.
+- **Questions go in Focus, not at the end of a chat reply.** When you need the user to
+  choose, or want them to see something, you put it in the GUI's Focus tab with the
+  breakdown: what is true now, the options with pros, cons and what each changes, and your
+  pick. They answer there and press Send; you reply in the same item. The review pile holds
+  everything unreviewed; Focus holds the few things you and the user are working through.
 
 This costs more planning up front, in exchange for builds that match what the user wanted
 the first time. Say so if the user wants something quick and throwaway; for a one-file
@@ -46,6 +51,7 @@ Paths below are relative to this skill's directory, written `<skill>`.
 | `schema/plan.ts` | Before writing or editing any plan. It is the format, with comments on every field. |
 | `schema/changeset.ts` | If you need the exact shape of an op. |
 | `schema/proposal.ts` | If you need the exact shape of a proposal or the user's response to one. |
+| `schema/focus.ts` | If you need the exact shape of a focus item or the user's answer to one. |
 | `profiles/{web,cli,api}.json` | When choosing profiles: allowed kinds, required states, the decision checklist. |
 | `examples/link-shortener/plan.json` | Before drafting your first plan: a complete web + API + CLI plan. Match its style. |
 | `references/authoring.md` | When drafting or elaborating: IDs, granularity, outcomes, decisions, impact. |
@@ -71,6 +77,7 @@ between commands, so write it out each time.
 | `pg apply <plan> [--rebase]` | Applies the changeset's ops to `plan.json`. The GUI shows "waiting for agent" and holds off until `done`. |
 | `pg done <plan>` | Lints, then releases the plan to the GUI. Refuses if there are lint errors. |
 | `pg proposal <plan> [--withdraw]` | Shows your pending proposal as the GUI sees it, or withdraws it. |
+| `pg focus <plan>` | Lists what's in focus: open items first, whose turn each is, the options and the thread. |
 | `pg tests <plan>` | The test matrix: one case per outcome, grouped by test target. |
 
 The first `serve` on a machine needs the GUI's dependencies:
@@ -79,9 +86,9 @@ The first `serve` on a machine needs the GUI's dependencies:
 ## Where the plan lives
 
 In the user's project, at `plan-graph/plan.json`. It is a project artifact: commit it.
-`changeset.json`, `changeset.applying.json` and `proposal.json` appear next to it during
-review and are transient; suggest adding `plan-graph/changeset*.json` and
-`plan-graph/proposal.json` to `.gitignore`.
+`changeset.json`, `changeset.applying.json`, `proposal.json` and `focus.json` appear next
+to it during review and are transient; suggest adding `plan-graph/changeset*.json`,
+`plan-graph/proposal.json` and `plan-graph/focus.json` to `.gitignore`.
 
 ## Workflow
 
@@ -91,7 +98,8 @@ retroactive: codebase → extract plan.json (code, built, sources)┤
                                                               ▼
                             lint → GUI review → apply changeset → elaborate → lint ─┐
                                       ▲    ▲                                        │
-       chat request → propose ────────┘    └──────── until the user is satisfied ───┘
+       chat request → propose ────────┤    └──────── until the user is satisfied ───┘
+       your question → focus ─────────┘
                                                               ▼
                                    implement → one test per outcome → keep plan in sync
 ```
@@ -140,9 +148,9 @@ Don't fix them.
    it prints. It reuses an editor already serving this plan. If 5199 belongs to another
    project, it moves to the next free port, so don't assume 5199. Leave it running
    between rounds.
-2. Tell the user the URL `serve` printed and where to start. Name the three to six
-   highest-impact proposed decisions in a sentence each, so they aren't facing 150 items
-   cold. On a large plan it opens on the group map: one card per group with what still
+2. Tell the user the URL `serve` printed and where to start. Put the three to six
+   highest-impact proposed decisions in focus (step 2″) and name them in a sentence each,
+   so they aren't facing 150 items cold. On a large plan it opens on the group map: one card per group with what still
    needs review. Point them to the group that matters most, and mention the Map tab. Mention that they can click anything to edit it. They can drag arrows to
    retarget them, add surfaces or actions (ticking "needs detail" when they want you to
    fill it in), leave a note on any item, and press **Send** when done.
@@ -155,6 +163,56 @@ than writing them into `plan.json`. Write directly only for a small, unambiguous
 no fallout and no decisions involved ("rename Home to Dashboard"), or when the user says
 to just do it; mark those `origin: "user", status: "confirmed"`. The GUI reloads the plan
 and keeps their unsent edits.
+
+### 2″. Put what needs the user in focus
+
+The Review tab lists every unreviewed item; on a real plan that is hundreds. **Focus** is
+the short list you and the user are working through right now, each item with everything
+needed to answer it in place. Use it whenever you would otherwise end a chat reply with a
+question that needs a breakdown, or bury a finding in a paragraph.
+
+1. `open()` the plan and call `p.focus({...})` per topic. It writes `plan-graph/focus.json`
+   straight away (no `save()`); the GUI opens on the Focus tab when something waits there.
+
+   ```ts
+   p.focus({
+     id: "f.session-storage", kind: "question", impact: "high",
+     title: "Which secure storage should the session use?",
+     summary: "<why it's in focus and what's at stake, 1–3 sentences>",
+     context: ["<what the code or plan does today>", "<a fact that bears on the choice>"],
+     refs: ["d.auth.session-storage", "mobile.launch.open"],
+     options: [
+       { id: "adapter", label: "Encrypted adapter", detail: "<what it means concretely>",
+         pros: ["…"], cons: ["…"], changes: "<what it changes in the plan or code>" },
+       { id: "keychain", label: "SecureStore with chunking", pros: ["…"], cons: ["…"] },
+     ],
+     recommended: "adapter", rationale: "<one sentence on why it wins>",
+   });
+   ```
+
+   - `kind`: `question` (they need to choose), `change` (you suggest something; the options
+     are how to go about it, including "not now"), `finding` (they should know; "Got it" is
+     an answer).
+   - Options are the real alternatives, each with what it means and costs. Don't pad to
+     three; two honest options beat a strawman. Put your recommendation in `recommended`
+     and say why in `rationale`.
+   - Keep it short: about three to six open items, highest impact first. A decision with
+     alternatives already lets the user switch in one click, so focus it only when the
+     choice needs more than its one-line rationale.
+2. Tell the user in a line or two what's in Focus and which item matters most. Then wait
+   for the send (step 2.3).
+3. When they send, `pg apply` prints each answer (the option they picked, their text,
+   and whether they marked it settled) and records it in the item's thread. Then, per item:
+   - Act on the answer like a note: make the change it asks for in the plan, with fallout.
+   - `p.resolveFocus(id, "<what was decided and where it landed>")` when that settles it.
+   - `p.followUp(id, "<your reply>", { options, recommended, rationale })` when the answer
+     opens a new question or you need a detail. The user sees your reply under theirs.
+   - An answer the user marked settled is never followed up; resolve it.
+
+   Don't leave an answered item open with no reply: the GUI shows it as waiting for you.
+
+A proposal's own questions (step 2′) stay with the proposal; Focus is for topics that
+outlive one change, and for questions with no change attached yet.
 
 ### 2′. Propose a change the user asked for in chat
 
@@ -240,13 +298,14 @@ If `apply` reports a base mismatch, you edited `plan.json` after the user loaded
 
 Then run `pg done <plan>`. The GUI reloads, marks what you changed with a blue dot, and
 reapplies anything the user edited meanwhile. In chat, summarize what you did beyond
-their literal edits, answer their comments, and list anything you need them to decide.
+their literal edits and answer their comments. Anything you need them to decide goes in
+focus (step 2″), with a line in chat pointing at it.
 Then go back to waiting (step 2.3).
 
 ### 4. Know when planning is done
 
-The plan is ready when there are no sketches, no high-impact `proposed` decisions, and no
-lint errors, and the user agrees. Low-impact proposals don't need individual review; the
+The plan is ready when there are no sketches, no high-impact `proposed` decisions, nothing
+open in focus, and no lint errors, and the user agrees. Low-impact proposals don't need individual review; the
 user can confirm them in bulk with "Confirm all shown" in the Review tab. Ask before
 moving on. Don't decide on your own that planning is over.
 

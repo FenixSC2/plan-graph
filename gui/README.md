@@ -40,12 +40,20 @@ skips ports held by another plan's editor.
 
 ## What you can do
 
+- **Resize**: drag the edge between a side pane and the graph to make it wider or narrower;
+  drag it nearly shut to collapse it and give the graph the room, then drag the grip back out
+  (or focus the edge and press Enter). Double-click an edge to reset. With the edge focused,
+  ←/→ resize it (Shift for bigger steps). Widths are remembered in this browser.
 - **Navigate**: scroll or swipe to pan, pinch or ⌘/Ctrl-scroll to zoom (both eased; reduced
   motion is respected). Double-click doesn't zoom.
 - **Trace**: select an arrow for a trace bar (source ⟵ condition ⟶ destination; click an end to
   glide there), or a surface to list everything leading in and out, with unrelated edges dimmed.
   `]` follows the selected arrow, `[` walks back along the trail; double-click an arrow to
   follow it.
+- **Focus**: what the agent highlighted for you (questions, suggested changes, findings),
+  each with its context, options (pros, cons, what each changes) and the agent's pick. Choose
+  an option or write your own answer and press Send; the agent replies in the same item.
+  The editor opens on this tab when something is waiting on you.
 - **Review**: the Review tab lists unreviewed items, high-impact decisions and sketches
   first. Confirm items one at a time; editing an item also marks it reviewed.
 - **Edit**: click any surface, state, element, interaction row, outcome, arrow or decision

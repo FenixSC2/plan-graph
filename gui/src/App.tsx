@@ -10,6 +10,7 @@ import { AddSurfaceDialog, DeleteDialog } from "./ui/Dialogs.tsx";
 import { UIContext } from "./ui/context.ts";
 import { TextField } from "./ui/fields.tsx";
 import { ProposedItem } from "./ui/ProposalTab.tsx";
+import { Splitter, usePaneWidths } from "./ui/Splitter.tsx";
 import { TraceBar } from "./graph/TraceBar.tsx";
 import { stopSmoothWheel } from "./graph/smoothWheel.ts";
 import { buildIndex, labelOf, slug, surfaceOf, uniqueId, userMeta, type Plan, type Ref } from "./model/plan.ts";
@@ -61,6 +62,7 @@ function Workspace() {
   const rf = useReactFlow();
   const [selected, setSelected] = useState<Ref | null>(null);
   const [tab, setTab] = useState<Tab>("review");
+  const panes = usePaneWidths();
   const [showCalls, setShowCalls] = useState(true);
   const [deleting, setDeleting] = useState<Ref | null>(null);
   const [adding, setAdding] = useState(false);
@@ -77,6 +79,17 @@ function Workspace() {
     setOverview(big);
     if (big) setTab("map");
   }, [overview, store.plan]);
+  // Something in Focus waiting on the user: that's where to start. (Once, on first load.)
+  const focusOpened = useRef(false);
+  useEffect(() => {
+    if (focusOpened.current || !store.focus) return;
+    focusOpened.current = true;
+    if (store.focusWaiting > 0) setTab("focus");
+  }, [store.focus, store.focusWaiting]);
+  // New items for the user while they're elsewhere: the banner says so; only switch if they're on Review.
+  useEffect(() => {
+    if (tab === "focus" && !store.focusItems.length) setTab("review");
+  }, [tab, store.focusItems.length]);
   const canvasRef = useRef<HTMLDivElement>(null);
   const mounted = useRef(false);
   if (import.meta.env.DEV) (window as any).__rf = rf; // debugging handle
@@ -236,7 +249,12 @@ function Workspace() {
 
   return (
     <UIContext.Provider value={ui}>
-      <div className="app">
+      <div
+        className="app"
+        style={{ gridTemplateColumns: `${panes.widths.left}px minmax(0, 1fr) ${panes.widths.right}px` }}
+        data-left-collapsed={panes.widths.left === 0 || undefined}
+        data-right-collapsed={panes.widths.right === 0 || undefined}
+      >
         <header className="toolbar">
           <div className="brand">
             <span className="logo">◆</span> Plan Graph
@@ -274,11 +292,13 @@ function Workspace() {
             {store.pending && <span className="pending" title="The agent has your changes and is working on them"><span className="pulse" /> waiting for agent</span>}
             <button
               className="btn primary"
-              disabled={!store.sendable || !!store.blocking.length || sentClean}
-              onClick={() => { setTab(store.proposalResponded ? "proposal" : "changes"); store.send(); }}
+              disabled={!store.sendable || !!store.blocking.length || (sentClean && !store.focusResponses.length)}
+              onClick={() => { setTab(store.proposalResponded ? "proposal" : store.focusResponses.length && !store.changes.length ? "focus" : "changes"); store.send(); }}
               title={store.blocking.length ? "Fix errors in Issues first" : store.proposalOpen ? "Accept or reject the agent's proposal in the Proposal tab to include your answer" : undefined}
             >
-              {sentClean ? "Sent ✓" : store.proposalResponded && !store.changes.length ? "Send answer" : `Send changes${store.changes.length ? ` (${store.changes.length})` : ""}`}
+              {sentClean && !store.focusResponses.length ? "Sent ✓"
+                : (store.proposalResponded || store.focusResponses.length) && !store.changes.length ? `Send answer${store.focusResponses.length + (store.proposalResponded ? 1 : 0) > 1 ? "s" : ""}`
+                : `Send changes${store.changes.length ? ` (${store.changes.length})` : ""}`}
             </button>
           </div>
         </header>
@@ -325,6 +345,9 @@ function Workspace() {
             <ProjectPanel store={store} />
           )}
         </aside>
+
+        <Splitter side="left" width={panes.widths.left} onResize={(px) => panes.setWidth("left", px)} onReset={() => panes.reset("left")} onToggle={() => panes.toggle("left")} onDragEnd={(w) => panes.dragEnded("left", w)} />
+        <Splitter side="right" width={panes.widths.right} onResize={(px) => panes.setWidth("right", px)} onReset={() => panes.reset("right")} onToggle={() => panes.toggle("right")} onDragEnd={(w) => panes.dragEnded("right", w)} />
       </div>
 
       {deleting && <DeleteDialog store={store} target={deleting} onClose={() => setDeleting(null)} onDone={() => { setDeleting(null); select(null); }} />}

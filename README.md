@@ -128,15 +128,26 @@ A session goes like this:
 where it starts, under what condition, and where it leads; click either end to glide there, or
 press `]` to follow it and `[` to step back along your trail. Select a surface to list every
 path into it and out of it, with everything else dimmed. Double-click an arrow to follow it.
+Drag the edge of either side pane to resize it, or nearly shut to collapse it and give the graph
+the room; double-click an edge to reset it.
 
 **Asking for changes in chat works too.** Say "drop custom aliases" or "add team invites", and
 the agent loads the change into the editor as a **proposal**: previewed on the graph, with the
 decisions it changes, the ones it puts in question, and anything it needs you to answer. Tick the
 parts you want, answer the questions and press **Send**.
 
-Commit `plan-graph/plan.json`, because it is your app's spec. Add `plan-graph/changeset*.json` and
-`plan-graph/proposal.json` to `.gitignore`, because those files only exist while a review is in
-progress.
+**The agent's questions come with their answers laid out.** Instead of ending a chat reply with
+"which do you want?", the agent puts the question in the **Focus** tab: what is true today, each
+option with its pros, cons and what it would change, and the one it recommends. Pick one or write
+your own, press **Send**, and the agent replies in the same item, so a topic can go a few rounds
+without being retyped. Findings and suggested changes land there too. The Review tab holds every
+unreviewed item; Focus holds the handful you and the agent are working through.
+
+![The Focus tab: a high-impact question about 301 vs 302 redirects, with what's true right now, two options with pros, cons and what each changes, the recommended one marked, and a box for your own answer](docs/focus.png)
+
+Commit `plan-graph/plan.json`, because it is your app's spec. Add `plan-graph/changeset*.json`,
+`plan-graph/proposal.json` and `plan-graph/focus.json` to `.gitignore`, because those files only
+exist while a review is in progress.
 
 ### Try the editor without an agent
 
@@ -221,6 +232,9 @@ The protocol is plain files. The agent doesn't need a server or an API key.
 - `plan.ts apply` renames it to `changeset.applying.json` and applies it. Until the agent runs
   `plan.ts done`, the editor waits and keeps any further edits you make.
 - When the agent is done, the editor reloads and replays your new edits on top.
+- Going the other way, the agent writes `proposal.json` (a change for you to review) and
+  `focus.json` (its questions, suggestions and findings). The editor only reads them; your
+  answers travel back in the next changeset.
 
 **The agent's CLI** ([`scripts/plan.ts`](scripts/plan.ts)):
 
@@ -231,6 +245,8 @@ The protocol is plain files. The agent doesn't need a server or an API key.
 | `serve` | Starts the editor, or finds the one already open for this plan, and prints its URL |
 | `wait` | Waits until you press Send |
 | `show` / `apply` / `done` | Inspects, applies and releases a changeset |
+| `proposal` | Shows the agent's pending proposal, or withdraws it |
+| `focus` | Lists what's in Focus: open items first, whose turn each is, the options and the thread |
 | `tests` | Prints the test matrix: one given/when/then case per outcome, grouped by Playwright, subprocess or HTTP |
 
 [`scripts/build.ts`](scripts/build.ts) is a small library the agent uses to write and edit plans.
@@ -281,6 +297,7 @@ For a one-file script it's overkill, and the skill tells the agent to say so.
 - A blocking MCP `review_plan()` tool, so that pressing Send hands control straight back to the agent
   (today the agent waits with `plan.ts wait`).
 - Collapse and expand a single group in place on the full graph.
+- Highlight a Focus item's plan items on the graph, and merge proposal questions into Focus.
 - Node positions saved in the plan instead of in browser storage.
 - Profiles for chat bots and desktop apps.
 
