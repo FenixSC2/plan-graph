@@ -1,8 +1,9 @@
 // Server API: the bridge between the GUI and the agent. Mounted on both the dev server
 // (`npm run dev`) and the production preview server (`plan.ts serve`).
 //   GET  /api/plan       → { plan, hash, profiles, planPath }
-//   GET  /api/status     → { hash, changesetPending, agentWorking, proposalId, planPath }
+//   GET  /api/status     → { hash, changesetPending, agentWorking, proposalId, focusSig, planPath }
 //   GET  /api/proposal   → { proposal } — the agent's pending proposal (proposal.json), or null
+//   GET  /api/focus      → { focus } — the agent's focus list (focus.json), or null
 //   POST /api/changeset  → writes changeset.json next to plan.json
 // The agent renames changeset.json to changeset.applying.json while it works (so the GUI
 // neither adopts a half-finished plan nor sends again), then deletes it when done.
@@ -18,6 +19,16 @@ export function planApi(opts: { planPath: string; profilesDir: string }): Plugin
   const readProposal = () => {
     try { return fs.existsSync(proposalPath) ? JSON.parse(fs.readFileSync(proposalPath, "utf8")) : null; }
     catch { return null; } // mid-write or malformed: treat as absent until the next poll
+  };
+  const focusPath = path.join(path.dirname(opts.planPath), "focus.json");
+  const readFocus = () => {
+    try { return fs.existsSync(focusPath) ? JSON.parse(fs.readFileSync(focusPath, "utf8")) : null; }
+    catch { return null; } // mid-write: the next poll picks it up
+  };
+  /** Changes whenever focus.json does; cheap enough to compute per poll (the file is small). */
+  const focusSig = () => {
+    try { return fs.existsSync(focusPath) ? hashOf(fs.readFileSync(focusPath, "utf8")) : null; }
+    catch { return null; }
   };
   const hashOf = (text: string) => "sha256:" + crypto.createHash("sha256").update(text).digest("hex");
   const readPlanText = () => fs.readFileSync(opts.planPath, "utf8");
@@ -59,17 +70,21 @@ export function planApi(opts: { planPath: string; profilesDir: string }): Plugin
           changesetPending: agentWorking || fs.existsSync(changesetPath),
           agentWorking,
           proposalId: readProposal()?.id ?? null,
+          focusSig: focusSig(),
           planPath: opts.planPath,
         });
       }
       if (req.method === "GET" && url === "/api/proposal") {
         return json(res, 200, { proposal: readProposal() });
       }
+      if (req.method === "GET" && url === "/api/focus") {
+        return json(res, 200, { focus: readFocus() });
+      }
       if (req.method === "POST" && url === "/api/changeset") {
         let body = "";
         for await (const chunk of req) body += chunk;
         const changeset = JSON.parse(body);
-        if (!Array.isArray(changeset.ops) || typeof changeset.base !== "string") {
+        if (!Array.isArray(changeset.ops) || typeof changeset.base !== "string" || (changeset.focus !== undefined && !Array.isArray(changeset.focus))) {
           return json(res, 400, { error: "invalid changeset" });
         }
         if (fs.existsSync(applyingPath)) {

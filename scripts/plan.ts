@@ -10,6 +10,7 @@
 //   apply   <plan> [--rebase]      apply the pending changeset's ops to plan.json; the GUI waits until `done`
 //   done    <plan>                 lint, then release the plan so the GUI picks it up
 //   proposal <plan> [--withdraw]   show your pending proposal (from PlanBuilder.propose()), or withdraw it
+//   focus   <plan>                 show the focus list (PlanBuilder.focus()): open items, whose turn, threads
 //
 // The model code is shared with the GUI, so ops apply here exactly as they do there.
 import fs from "node:fs";
@@ -22,6 +23,7 @@ import { applyOps, type Changeset, type Op } from "../gui/src/model/diff.ts";
 import { lint, type Profile } from "../gui/src/model/lint.ts";
 import { decisionImpacts } from "../gui/src/model/proposal.ts";
 import type { Proposal } from "../schema/proposal.ts";
+import { describeAnswer, optionLabel, recordResponses, sortFocus, turnOf, type FocusFile } from "../gui/src/model/focus.ts";
 
 const SKILL_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 
@@ -38,7 +40,7 @@ function die(msg: string, code = 1): never {
 }
 
 if (!cmd || cmd === "help" || cmd === "--help") {
-  console.log(fs.readFileSync(new URL(import.meta.url), "utf8").split("\n").slice(0, 13).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
+  console.log(fs.readFileSync(new URL(import.meta.url), "utf8").split("\n").slice(0, 14).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
   process.exit(0);
 }
 if (!planArg) die(`usage: plan.ts ${cmd} <plan.json>`);
@@ -49,6 +51,8 @@ const changesetPath = path.join(path.dirname(planPath), "changeset.json");
 const applyingPath = path.join(path.dirname(planPath), "changeset.applying.json");
 // The agent's pending proposal (PlanBuilder.propose()). The GUI shows it until the user answers.
 const proposalPath = path.join(path.dirname(planPath), "proposal.json");
+// The agent's focus list (PlanBuilder.focus()): topics in play with the user. Answers arrive in the changeset.
+const focusPath = path.join(path.dirname(planPath), "focus.json");
 const profilesDir = path.resolve(opt("profiles") ?? path.join(SKILL_DIR, "profiles"));
 
 const hashOf = (text: string) => "sha256:" + crypto.createHash("sha256").update(text).digest("hex");
@@ -72,6 +76,7 @@ const readJson = (p: string) => (fs.existsSync(p) ? JSON.parse(fs.readFileSync(p
 type StoredChangeset = Changeset & { proposalSnapshot?: Proposal };
 const readChangeset = (): StoredChangeset | null => readJson(changesetPath) ?? readJson(applyingPath);
 const readProposal = (): Proposal | null => readJson(proposalPath);
+const readFocus = (): FocusFile | null => readJson(focusPath);
 
 const status = (meta: { origin: string; status: string; built?: string } | undefined) =>
   meta ? `[${meta.origin}/${meta.status}${meta.built && meta.built !== "no" ? `, built ${meta.built}` : ""}]` : "";
@@ -197,6 +202,23 @@ function showChangeset(cs: StoredChangeset, plan: Plan) {
     if (r.reply) { console.log(`User's reply to the proposal: ${r.reply}`); todo.push("Act on the reply to your proposal"); }
   }
 
+  if (cs.focus?.length) {
+    const file = readFocus();
+    console.log(`\nAnswers to ${cs.focus.length} item(s) in focus:`);
+    for (const r of cs.focus) {
+      const item = file?.items.find((i) => i.id === r.id);
+      const answer = item ? describeAnswer(item, r) : [r.choice, r.text].filter(Boolean).join(" — ");
+      console.log(`  ${r.id} “${r.title}”\n    → ${answer}`);
+      const picked = item && r.choice ? item.options?.find((o) => o.id === r.choice) : undefined;
+      if (picked?.changes) console.log(`    (that option changes: ${picked.changes})`);
+      todo.push(
+        `Focus ${r.id}: act on “${answer}”${item && r.choice ? ` (${optionLabel(item, r.choice)})` : ""}. ` +
+        (r.done ? "The user considers it settled: make the change if there is one, then resolveFocus() with one line on where it landed"
+          : "Then resolveFocus() if that settles it, or followUp() with your reply (and new options if the answer opens a new choice)"),
+      );
+    }
+  }
+
   console.log("");
   cs.ops.forEach((op, i) => console.log(`${i + 1}. ${describeOp(op, idx)}`));
 
@@ -250,6 +272,21 @@ function proposal() {
   for (const q of p.questions ?? []) console.log(`\nQ ${q.id}: ${q.question}${q.options ? `\n   options: ${q.options.join(" | ")}` : ""}${q.recommended ? `\n   recommended: ${q.recommended}` : ""}`);
 }
 
+function focus() {
+  const file = readFocus();
+  if (!file?.items.length) return console.log("Nothing in focus.");
+  const items = sortFocus(file.items);
+  const open = items.filter((i) => i.status === "open");
+  const turn = (i: (typeof items)[number]) => ({ user: "user's turn", agent: "YOUR TURN: the user answered", none: "resolved" })[turnOf(i)];
+  console.log(`Focus: ${open.length} open, ${items.length - open.length} resolved.`);
+  for (const it of items) {
+    console.log(`\n${it.id}  [${it.kind}${it.impact ? `, ${it.impact}` : ""}] ${turn(it)}\n  ${it.title}`);
+    if (it.status === "resolved") { if (it.resolution) console.log(`  resolution: ${it.resolution}`); continue; }
+    for (const o of it.options ?? []) console.log(`    ${o.id === it.recommended ? "*" : "-"} ${o.id}: ${o.label}`);
+    for (const t of it.thread ?? []) console.log(`  ${t.from === "agent" ? "agent" : "user "}: ${t.from === "agent" ? t.text : describeAnswer(it, t)}`);
+  }
+}
+
 function apply() {
   if (!fs.existsSync(changesetPath)) {
     die(fs.existsSync(applyingPath)
@@ -282,11 +319,20 @@ function apply() {
   fs.unlinkSync(changesetPath);
   if (stored.proposalSnapshot) fs.unlinkSync(proposalPath);
   fs.writeFileSync(planPath, JSON.stringify(next, null, 2) + "\n");
+  // Focus answers go into their items' threads: the history stays with the topic, and the GUI
+  // shows each answered item as waiting for you.
+  const file = readFocus();
+  let unmatchedFocus: string[] = [];
+  if (cs.focus?.length && file) {
+    unmatchedFocus = recordResponses(file, cs.focus).map((r) => r.id);
+    fs.writeFileSync(focusPath, JSON.stringify(file, null, 2) + "\n");
+  }
   showChangeset(stored, plan);
   if (failed.length) {
     console.log(`\n${failed.length} op(s) did not apply (target missing or id taken):`);
     for (const op of failed) console.log(`  - ${describeOp(op, buildIndex(plan)).split("\n")[0]}`);
   }
+  if (unmatchedFocus.length) console.log(`\nFocus answers for items that are gone or already resolved: ${unmatchedFocus.join(", ")}. Read them above; they were not recorded.`);
   console.log(`\nApplied to ${planPath}. The GUI shows "waiting for agent" and holds off until you run \`done\`.`);
 }
 
@@ -387,6 +433,7 @@ switch (cmd) {
   case "apply": apply(); break;
   case "done": done(); break;
   case "proposal": proposal(); break;
+  case "focus": focus(); break;
   case "serve": await serve(); break;
   default: die(`Unknown command “${cmd}”. Run with --help.`);
 }

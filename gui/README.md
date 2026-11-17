@@ -46,6 +46,10 @@ skips ports held by another plan's editor.
   glide there), or a surface to list everything leading in and out, with unrelated edges dimmed.
   `]` follows the selected arrow, `[` walks back along the trail; double-click an arrow to
   follow it.
+- **Focus**: what the agent highlighted for you (questions, suggested changes, findings),
+  each with its context, options (pros, cons, what each changes) and the agent's pick. Choose
+  an option or write your own answer and press Send; the agent replies in the same item.
+  The editor opens on this tab when something is waiting on you.
 - **Review**: the Review tab lists unreviewed items, high-impact decisions and sketches
   first. Confirm items one at a time; editing an item also marks it reviewed.
 - **Edit**: click any surface, state, element, interaction row, outcome, arrow or decision

@@ -134,9 +134,16 @@ the agent loads the change into the editor as a **proposal**: previewed on the g
 decisions it changes, the ones it puts in question, and anything it needs you to answer. Tick the
 parts you want, answer the questions and press **Send**.
 
-Commit `plan-graph/plan.json`, because it is your app's spec. Add `plan-graph/changeset*.json` and
-`plan-graph/proposal.json` to `.gitignore`, because those files only exist while a review is in
-progress.
+**The agent's questions come with their answers laid out.** Instead of ending a chat reply with
+"which do you want?", the agent puts the question in the **Focus** tab: what is true today, each
+option with its pros, cons and what it would change, and the one it recommends. Pick one or write
+your own, press **Send**, and the agent replies in the same item, so a topic can go a few rounds
+without being retyped. Findings and suggested changes land there too. The Review tab holds every
+unreviewed item; Focus holds the handful you and the agent are working through.
+
+Commit `plan-graph/plan.json`, because it is your app's spec. Add `plan-graph/changeset*.json`,
+`plan-graph/proposal.json` and `plan-graph/focus.json` to `.gitignore`, because those files only
+exist while a review is in progress.
 
 ### Try the editor without an agent
 
