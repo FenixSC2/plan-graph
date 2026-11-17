@@ -16,7 +16,9 @@ PLAN=path/to/plan.json npm run dev           # any plan (path relative to the re
 
 `npm run dev` is for working on the editor itself. Agents start it with `plan.ts serve`, which
 builds the production bundle (only when the sources changed) and serves that instead: React's
-development build is several times slower, which large plans feel.
+development build is several times slower, which large plans feel. `serve` gives each plan one
+editor. It reuses the editor already serving that plan (`/api/status` reports `planPath`), and
+skips ports held by another plan's editor.
 
 ## Large plans
 

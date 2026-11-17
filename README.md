@@ -104,8 +104,9 @@ A session goes like this:
 
 1. **Draft.** The agent writes `plan-graph/plan.json` in your project, or extracts it from your
    existing code. Everything it assumed is marked *proposed*.
-2. **Review.** The agent starts the editor at <http://localhost:5199> and points out the three to
-   six highest-impact decisions to check first.
+2. **Review.** The agent starts the editor at <http://localhost:5199> (or the next free port, if
+   another project's editor has that one) and points out the three to six highest-impact
+   decisions to check first.
 3. **Edit and Send.** In the editor you can:
    - click anything to edit it;
    - drag an arrow onto another surface to retarget it;
@@ -227,7 +228,7 @@ The protocol is plain files. The agent doesn't need a server or an API key.
 |---|---|
 | `lint` | Finds errors, likely gaps (unreachable screens, dead ends, actions that can fail but have only one outcome) and unanswered checklist items |
 | `outline` | Prints a compact text view of the whole graph |
-| `serve` | Starts the editor |
+| `serve` | Starts the editor, or finds the one already open for this plan, and prints its URL |
 | `wait` | Waits until you press Send |
 | `show` / `apply` / `done` | Inspects, applies and releases a changeset |
 | `tests` | Prints the test matrix: one given/when/then case per outcome, grouped by Playwright, subprocess or HTTP |

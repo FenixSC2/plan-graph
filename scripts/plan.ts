@@ -3,7 +3,8 @@
 //   lint    <plan>                 lint the plan; exit 1 if there are errors
 //   outline <plan>                 compact text view of the graph (surfaces → interactions → outcomes)
 //   tests   <plan>                 test matrix: one case per outcome, grouped by profile test target
-//   serve   <plan> [--port N]      start the review GUI (foreground; run it in the background)
+//   serve   <plan> [--port N]      start the review GUI (foreground; run it in the background) and print its URL;
+//                                  reuses an editor already serving this plan, skips ports serving another
 //   wait    <plan> [--timeout S]   block until the user sends a changeset, then show it (exit 2 on timeout)
 //   show    <plan>                 show the pending changeset, with labels and a to-do list
 //   apply   <plan> [--rebase]      apply the pending changeset's ops to plan.json; the GUI waits until `done`
@@ -14,7 +15,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import { buildIndex, labelOf, surfaceOf, type Plan, type PlanIndex, type Ref } from "../gui/src/model/plan.ts";
 import { applyOps, type Changeset, type Op } from "../gui/src/model/diff.ts";
 import { lint, type Profile } from "../gui/src/model/lint.ts";
@@ -310,13 +312,45 @@ function newestSource(dir: string): number {
   return newest;
 }
 
-function serve() {
+const realpath = (p: string) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+
+/** What is listening on a port: null when nothing is, the plan path for a plan-graph editor,
+ *  "" for anything else (or an editor that won't say). */
+async function servedPlan(port: number): Promise<string | null> {
+  const get = async (route: string) => (await fetch(`http://localhost:${port}${route}`, { signal: AbortSignal.timeout(3000) })).json();
+  try {
+    const status = await get("/api/status");
+    if (typeof status?.planPath === "string") return status.planPath;
+    if (status && "hash" in status) return (await get("/api/plan").catch(() => null))?.planPath ?? ""; // editors before 0.3.1
+    return "";
+  } catch (e: any) {
+    return e?.cause?.code === "ECONNREFUSED" ? null : "";
+  }
+}
+
+async function serve() {
   const gui = path.join(SKILL_DIR, "gui");
   const vite = path.join(gui, "node_modules/vite/bin/vite.js");
   if (!fs.existsSync(vite)) die(`GUI dependencies are missing. Run: npm install --prefix ${gui}`);
   readPlan();
-  const port = opt("port") ?? "5199";
-  const env = { ...process.env, PLAN: planPath, PORT: port };
+
+  // Each plan gets one editor. Reuse the one already serving this plan; when another plan's
+  // editor (or anything else) holds the port, move on to the next, unless --port was given.
+  const asked = opt("port");
+  let port = Number(asked ?? 5199);
+  for (let tries = 0; ; tries++, port++) {
+    const served = await servedPlan(port);
+    if (served === null) break;
+    const what = served ? `the editor for ${served}` : "something that isn't this plan's editor";
+    if (served && realpath(served) === realpath(planPath)) {
+      console.log(`The editor for this plan is already running: http://localhost:${port}  (give the user this URL)`);
+      return;
+    }
+    if (asked) die(`Port ${port} is in use by ${what}. Pick another --port, or leave --port out to use the next free one.`);
+    if (tries === 20) die(`Ports ${port - 20}–${port} are all in use. Pass a free --port.`);
+    console.log(`Port ${port} is in use by ${what}; trying ${port + 1}.`);
+  }
+  const env = { ...process.env, PLAN: planPath, PORT: String(port) };
 
   // Serve the production build: React's development build is several times slower and
   // renders everything twice, which large plans feel. Rebuild only when the sources changed.
@@ -332,8 +366,16 @@ function serve() {
     fs.rmSync(dist, { recursive: true, force: true });
     try { fs.renameSync(tmp, dist); } catch { fs.rmSync(tmp, { recursive: true, force: true }); } // another serve won the race
   }
-  const child = spawn(process.execPath, [vite, "preview", gui, "--port", port, "--strictPort"], { stdio: "inherit", env });
-  child.on("exit", (code) => process.exit(code ?? 0));
+  // Serve in this process rather than a child: killing `serve` then always frees the port,
+  // where a child vite outlived its parent and kept serving a stale plan.
+  Object.assign(process.env, env);
+  const { preview } = await import(pathToFileURL(path.join(gui, "node_modules/vite/dist/node/index.js")).href);
+  try {
+    await preview({ root: gui, configFile: path.join(gui, "vite.config.ts"), logLevel: "warn", preview: { port, strictPort: true } });
+  } catch (e: any) {
+    die(`Couldn't start the editor on port ${port}: ${e?.message ?? e}`);
+  }
+  console.log(`The editor for this plan: http://localhost:${port}  (give the user this URL)`);
 }
 
 switch (cmd) {
@@ -345,6 +387,6 @@ switch (cmd) {
   case "apply": apply(); break;
   case "done": done(); break;
   case "proposal": proposal(); break;
-  case "serve": serve(); break;
+  case "serve": await serve(); break;
   default: die(`Unknown command “${cmd}”. Run with --help.`);
 }

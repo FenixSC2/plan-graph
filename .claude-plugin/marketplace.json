@@ -11,7 +11,7 @@
       "name": "plan-graph",
       "source": "./",
       "description": "See and edit every decision your AI coding agent is about to make, as a graph of screens, commands and endpoints, before it writes code. Makes large projects readable at a glance.",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "author": {
         "name": "Nathan Barth",
         "url": "https://github.com/FenixSC2"

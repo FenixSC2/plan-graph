@@ -65,7 +65,7 @@ between commands, so write it out each time.
 |---|---|
 | `pg lint <plan>` | Errors (block review), warnings (likely gaps), info (unanswered checklist items, sketches). Exit 1 on errors. |
 | `pg outline <plan>` | Compact text view of the whole graph. Use it instead of re-reading the JSON. |
-| `pg serve <plan> [--port N]` | Starts the GUI (default port 5199). Run it in the background. |
+| `pg serve <plan> [--port N]` | Starts the GUI in the background and prints its URL. It reuses an editor already serving this plan, and skips ports held by another plan's editor. |
 | `pg wait <plan> [--timeout S]` | Blocks until the user sends, then prints the changeset. Exit 2 on timeout. |
 | `pg show <plan>` | Prints the pending changeset, labelled, with your to-do list. |
 | `pg apply <plan> [--rebase]` | Applies the changeset's ops to `plan.json`. The GUI shows "waiting for agent" and holds off until `done`. |
@@ -136,10 +136,11 @@ Don't fix them.
 
 ### 2. Review in the GUI
 
-1. Start the GUI in the background: `pg serve <abs path to plan.json>`. Before starting
-   another, check whether one is already running for this plan
-   (`curl -s localhost:5199/api/status`). Leave it running between rounds.
-2. Tell the user it's at http://localhost:5199 and where to start. Name the three to six
+1. Start the GUI in the background: `pg serve <abs path to plan.json>`, and read the URL
+   it prints. It reuses an editor already serving this plan. If 5199 belongs to another
+   project, it moves to the next free port, so don't assume 5199. Leave it running
+   between rounds.
+2. Tell the user the URL `serve` printed and where to start. Name the three to six
    highest-impact proposed decisions in a sentence each, so they aren't facing 150 items
    cold. On a large plan it opens on the group map: one card per group with what still
    needs review. Point them to the group that matters most, and mention the Map tab. Mention that they can click anything to edit it. They can drag arrows to
@@ -189,10 +190,10 @@ or none of it.
    the proposal. Give options and a recommendation when there are obvious answers. Don't
    ask what a decision with alternatives already covers; the user can switch those in one
    click. A proposal can be questions only, with no edits.
-3. Make sure the GUI is running (step 2.1), then tell the user in one or two lines that
-   the proposal is in the **Proposal** tab, previewed on the graph (green = added,
-   pink = changed, struck through = removed), and name the decision or question that
-   matters most. Then wait for the send (step 2.3).
+3. Run `pg serve` (step 2.1) to get this plan's editor URL, then tell the user in one or
+   two lines that the proposal is in the **Proposal** tab at that URL, previewed on the
+   graph (green = added, pink = changed, struck through = removed), and name the decision
+   or question that matters most. Then wait for the send (step 2.3).
 4. When they send, `pg show` and `pg apply` print their response first: ops accepted and
    rejected, answers, and their reply. Accepted ops arrive in the changeset as the user's
    own edits, marked confirmed, and `apply` removes `proposal.json`. Leave rejected ops

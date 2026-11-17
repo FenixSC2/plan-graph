@@ -9,5 +9,5 @@ expected_outcome: |
   field, the CLI --alias flag, alias wording in the API request and outcomes and the CLI usage
   line). Applied, the proposal lints clean. Added and changed items are agent/proposed with notes.
   The proposal raises at least one decision or question the change implies. plan.json is byte-for-byte
-  unchanged, and the reply points the user to the Proposal tab in the editor instead of claiming
+  unchanged, and the reply points the user to the Proposal tab of the editor serving this plan (not another project's editor already on 5199) instead of claiming
   the change is made.

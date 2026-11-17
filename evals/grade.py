@@ -285,7 +285,30 @@ def grade_proposes_chat_change(proj):
     r["06"] = (bool(dec_ops or qs), f"{len(dec_ops)} decision op(s), {len(qs)} question(s)")
     qbad = [q.get("id", "?") for q in qs if not q.get("id") or not q.get("question") or (q.get("recommended") and q.get("recommended") not in (q.get("options") or []))]
     r["07"] = (len(qs) <= 3 and not qbad, f"{len(qs)} question(s); malformed: {qbad or 'none'}")
+    r["09"] = editor_url_check(proj)
     return r
+
+def editor_url_check(proj):
+    """The reply's editor URL must be one the trace shows serving this project's plan."""
+    run = os.path.dirname(os.path.dirname(proj))
+    reply = open(f"{run}/outputs/response.md").read() if os.path.exists(f"{run}/outputs/response.md") else ""
+    ports = set(re.findall(r"localhost:(\d+)", reply))
+    if not ports: return (False, "the reply gives no editor URL")
+    seen, ours = "", set()
+    if os.path.exists(f"{run}/trace.jsonl"):
+        for l in open(f"{run}/trace.jsonl"):
+            if '"tool_result"' in l: seen += l.replace("\\n", "\n")
+            # A `serve --port N` the agent ran on this project's plan (its cwd is the project)
+            # counts too: --strictPort means it only starts if N is free. Without --port, serve
+            # may move to another port, so only its printed URL counts.
+            for cmd in re.findall(r'"command":\s*"((?:[^"\\]|\\.)*plan\.ts serve(?:[^"\\]|\\.)*)"', l):
+                m = re.search(r"--port\s+(\d+)", cmd)
+                if m and "plan-graph/plan.json" in cmd: ours.add(m.group(1))
+    plan = os.path.realpath(f"{proj}/plan-graph/plan.json")
+    ours |= set(re.findall(r"(?:editor for this plan(?: is already running)?): http://localhost:(\d+)", seen))
+    for m in re.finditer(r'localhost:(\d+)/api/status.{0,400}?\\?"planPath\\?":\s*\\?"([^"\\]+)', seen, re.S):
+        if os.path.realpath(m.group(2)) == plan: ours.add(m.group(1))
+    return (ports <= ours and bool(ours), f"reply names port(s) {sorted(ports)}; ports the trace shows serving this plan: {sorted(ours) or 'none'}")
 
 GRADERS = {"plans-new-web-app": grade_plans_new_web_app, "documents-existing-notes-app": grade_documents_existing_notes_app, "applies-gui-changeset": grade_applies_gui_changeset, "implements-from-plan": grade_implements_from_plan, "proposes-chat-change": grade_proposes_chat_change}
 

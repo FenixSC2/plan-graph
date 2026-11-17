@@ -1,7 +1,7 @@
 // Server API: the bridge between the GUI and the agent. Mounted on both the dev server
 // (`npm run dev`) and the production preview server (`plan.ts serve`).
 //   GET  /api/plan       → { plan, hash, profiles, planPath }
-//   GET  /api/status     → { hash, changesetPending, agentWorking, proposalId }
+//   GET  /api/status     → { hash, changesetPending, agentWorking, proposalId, planPath }
 //   GET  /api/proposal   → { proposal } — the agent's pending proposal (proposal.json), or null
 //   POST /api/changeset  → writes changeset.json next to plan.json
 // The agent renames changeset.json to changeset.applying.json while it works (so the GUI
@@ -59,6 +59,7 @@ export function planApi(opts: { planPath: string; profilesDir: string }): Plugin
           changesetPending: agentWorking || fs.existsSync(changesetPath),
           agentWorking,
           proposalId: readProposal()?.id ?? null,
+          planPath: opts.planPath,
         });
       }
       if (req.method === "GET" && url === "/api/proposal") {
