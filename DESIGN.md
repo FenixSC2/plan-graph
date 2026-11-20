@@ -150,6 +150,25 @@ down (dynamic routes, feature flags, runtime-generated commands) stays `proposed
 later re-sync only re-reads files changed since then. That re-sync is also how
 drift is detected on projects without full test coverage.
 
+### Internals, walkthroughs and simplification
+
+Outside-in profiles explain what an app exposes, not how it works. The `internals` profile
+reuses the same core for what sits behind the surfaces: modules and services (interactions
+are their public operations), tables and caches (interactions are the reads and writes),
+jobs and queues, and external services. They connect to the rest through `calls` effects, so
+lint's reachability and dead-end rules turn into findings about the code: a table nothing
+writes, a job nothing enqueues. Only what a reader needs to follow a path becomes a node.
+Helpers and utilities stay off the graph.
+
+A walkthrough ("what happens when someone places an order") is a Focus `finding`. Its
+`refs` list the steps in path order, and its `context` holds one line per step. That needs
+no new schema; a Tours view that steps through `refs` on the graph is a later GUI change.
+
+Simplification uses the property that every outcome is a test. Before refactoring, the
+agent writes characterization tests for the outcomes it will touch and runs them on the
+unchanged code. The same tests, unedited, must pass afterwards. Behaviour callers can see
+goes to the user as a change rather than being made as part of the cleanup.
+
 ## Lint rules (run by both GUI and agent)
 
 - Dangling refs; duplicate IDs
@@ -179,5 +198,6 @@ retroactive: existing codebase → agent extracts plan.json (origin code, built 
 - Should `confirmed` items be locked against agent edits, or just flagged when changed?
 - Granularity for elements: does every input field need to be an element, or only
   those with interactions/decisions attached?
-- How are non-interactive concerns (data model, perf, deployment) represented — as
-  decisions attached to the project root, or as a separate non-graph section?
+- How are non-interactive concerns (data model, perf, deployment) represented? The data
+  model and background work are now surfaces in the `internals` profile. Perf and deployment
+  are still only project-wide decisions.

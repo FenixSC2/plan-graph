@@ -8,9 +8,9 @@ description: >-
   and the plan drives the build and one test per outcome. Use it whenever the user wants to plan,
   spec or design an app, CLI, API, bot, mobile app or sizeable feature before building it; asks
   what every screen, button, route, command or endpoint does and where it goes; wants assumptions
-  or edge cases written down for sign-off; or wants a large, complex or unfamiliar codebase made
-  easy to see and navigate, mapped or audited (dead routes, missing error handling), even if they
-  never say "graph" or "plan". Also use it when the user mentions the plan graph, the graph
+  or edge cases written down for sign-off; or wants a large, complex or unfamiliar codebase
+  explained, mapped, audited or simplified (how it fits together, dead code, missing error
+  handling), even if they never say "graph" or "plan". Also use it when the user mentions the plan graph, the graph
   editor, hitting Send, the Focus tab, or a JSON file in plan-graph/.
 ---
 
@@ -52,10 +52,11 @@ Paths below are relative to this skill's directory, written `<skill>`.
 | `schema/changeset.ts` | If you need the exact shape of an op. |
 | `schema/proposal.ts` | If you need the exact shape of a proposal or the user's response to one. |
 | `schema/focus.ts` | If you need the exact shape of a focus item or the user's answer to one. |
-| `profiles/{web,cli,api}.json` | When choosing profiles: allowed kinds, required states, the decision checklist. |
+| `profiles/{web,cli,api,mobile,internals}.json` | When choosing profiles: allowed kinds, required states, the decision checklist. `internals` maps modules, jobs, queues, tables and external services behind the other surfaces. |
 | `examples/link-shortener/plan.json` | Before drafting your first plan: a complete web + API + CLI plan. Match its style. |
 | `references/authoring.md` | When drafting or elaborating: IDs, granularity, outcomes, decisions, impact. |
 | `references/retroactive.md` | When documenting an existing codebase. |
+| `references/explain.md` | When the user wants an existing codebase explained (how it works, what happens when…) or simplified without changing what it does. |
 | `scripts/plan.ts` | The CLI you run (below). |
 | `scripts/build.ts` | Import it in a script to write or edit `plan.json`. Read its header comment for the API. |
 | `gui/` | The review GUI. You start it with the CLI; you don't need to read its code. |
@@ -141,6 +142,12 @@ Read `references/retroactive.md`. In short: detect profiles from the stack, extr
 exists with `origin: "code"`, `built: "yes"` and `sources`, record the decisions the code
 made implicitly, lint, and report lint warnings to the user as findings about their code.
 Don't fix them.
+
+When the user wants to understand how the code works, not only what it exposes, or wants
+it simplified, also read `references/explain.md`. It adds the `internals` profile
+(modules, jobs, queues, tables and external services, linked by `calls`), a skeleton-first
+pass for big codebases, "what happens when…" walkthroughs as Focus findings, and
+simplification done only behind tests that pin today's behaviour.
 
 ### 2. Review in the GUI
 

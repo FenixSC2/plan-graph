@@ -376,6 +376,7 @@ input[type="checkbox"] { width: auto; accent-color: var(--accent); }
 .snode-handles { position: absolute; right: 0; top: 50%; width: 0; height: 0; }
 .react-flow__handle.h-compact { opacity: 0; pointer-events: none; }
 .snode.profile-mobile::before, .profile-mobile .ptag { background: #d9668f; }
+.snode.profile-internals::before, .profile-internals .ptag { background: #b07a1f; }
 
 /* ── groups: regions behind surfaces ─── */
 .react-flow__node-region { pointer-events: none !important; }
@@ -433,6 +434,7 @@ input[type="checkbox"] { width: auto; accent-color: var(--accent); }
 .gp-api { background: var(--api); color: #fff; }
 .gp-cli { background: var(--cli); color: #fff; }
 .gp-mobile { background: #d9668f; color: #fff; }
+.gp-internals { background: #b07a1f; color: #fff; }
 
 /* ── toolbar: view toggle ────────────── */
 .view-toggle { display: inline-flex; }

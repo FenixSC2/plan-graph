@@ -1,0 +1,20 @@
+{
+  "id": "internals",
+  "name": "Internals",
+  "surfaceKinds": ["module", "service", "job", "queue", "table", "cache", "file-store", "external"],
+  "elementKinds": ["argument", "return-field", "column", "message-field", "env-var", "option"],
+  "triggerKinds": ["invoke", "read", "write", "message", "schedule", "event", "startup"],
+  "addressFormat": "file#export, or a resource with its kind, e.g. src/orders/service.ts#placeOrder, table:orders, queue:emails, https://api.stripe.com",
+  "requiredStates": {},
+  "decisionChecklist": [
+    { "key": "int-boundaries", "question": "What are the layers or boundaries (handlers → services → data), and which modules may call which?" },
+    { "key": "int-state", "question": "Where does state live (database, cache, memory, files), and which store is the source of truth for each kind of data?" },
+    { "key": "int-errors", "question": "How do errors travel between modules: thrown, returned as values, or logged and swallowed?" },
+    { "key": "int-async", "question": "What runs in the background (jobs, queues, timers, events), and what happens when it fails: retried, dead-lettered, or lost?" },
+    { "key": "int-consistency", "question": "Which multi-step writes must succeed or fail together, and what undoes a partial one (transactions, compensation, nothing)?" },
+    { "key": "int-external", "question": "Which external services does it depend on, and what happens when each one is slow, down or returns an error?" },
+    { "key": "int-config", "question": "Where does configuration come from (env, files, flags), and what happens when a value is missing?" },
+    { "key": "int-observability", "question": "How would someone notice a failure in production: logs, metrics, alerts, or not at all?" }
+  ],
+  "testTarget": "unit"
+}
