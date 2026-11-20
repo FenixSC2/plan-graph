@@ -100,6 +100,8 @@ to be mapped, and the agent picks it up:
 > I just inherited this repo and it's huge. Map it so I can see what the app does and where things
 > live before I touch anything.
 
+> This service has gotten messy. Simplify it without changing what it does for the apps that call it.
+
 A session goes like this:
 
 1. **Draft.** The agent writes `plan-graph/plan.json` in your project, or extracts it from your
@@ -194,6 +196,28 @@ their surfaces and review counts, so you can jump anywhere in two clicks.
 This also works on code that already exists. Point the agent at a large or unfamiliar repo
 (`map this codebase so I can see what it does`) and the group map becomes its table of contents.
 
+## Understand or simplify an existing codebase
+
+Ask the agent to explain a repo (`I just inherited this, how does it work?`) and it goes past
+the screens and endpoints:
+
+- **The internals go on the graph too.** The `internals` profile adds services, background jobs,
+  queues, tables and external services such as a payment provider, linked by the calls between
+  them. Following a request from its endpoint to the database means following arrows. Helpers and
+  utilities stay off the graph, so it doesn't turn into a copy of your file tree.
+- **Walkthroughs.** The agent writes the three to six paths that explain the codebase ("what
+  happens when someone places an order") as Focus items. Each one lists its steps in order, with
+  the file and line for each, and links each step to the graph. Surprises are flagged in the step
+  where they happen, such as a failed payment that leaves stock reserved.
+- **Big repos, a bit at a time.** The agent sketches every area first, then fills in one group at a
+  time, starting where you point.
+
+Ask it to simplify, and it keeps behaviour the same while it cuts. It finds dead code, duplicated
+logic, pass-through layers and inconsistencies, and proposes them in the editor. Before changing a
+line, it writes tests that pin what the code does today and checks they pass. It then makes the
+changes and runs the same tests, unchanged. Anything callers would notice, such as a different error
+shape or a fixed bug, comes to you first rather than riding along with the cleanup.
+
 ## How it works
 
 ```
@@ -254,7 +278,7 @@ It keeps outcome IDs consistent, cascades removals the same way the editor does,
 
 ## Does it help?
 
-The skill ships with four test cases in [`evals/`](evals), each with a prompt, fixture files and
+The skill ships with six test cases in [`evals/`](evals), each with a prompt, fixture files and
 graders. Each case was run once per configuration, so treat the numbers as indicative:
 
 | Test case | With Plan Graph | Plain agent |
@@ -263,6 +287,8 @@ graders. Each case was run once per configuration, so treat the numbers as indic
 | Map an undocumented notes app (web + API + CLI) and find its planted bugs | 9/9 | 5/9 |
 | Pick up an editor changeset and do the follow-on work | 8/8 | 4/8 |
 | Build a CLI from an approved plan, one test per outcome | 7/7 | 6/7 |
+| Explain an orders service (API, jobs, queue, payments) and find its planted problems | 8/8 | 3/8 |
+| Simplify an invoices API without changing its behaviour | 8/8 | 4/8 |
 
 Most of the planning gap is format: a plain agent writes a good prose plan, not a `plan.json`
 an editor can open. The differences that matter in practice:
@@ -272,9 +298,19 @@ an editor can open. The differences that matter in practice:
 - **Keeping the plan true.** When building, both agents handled three edge cases that the plan
   hadn't modeled. Only the Plan Graph run added them to the plan for review. The plain agent
   mentioned them in chat.
+- **Explaining and simplifying leave something behind.** On the two newest cases the plain agent
+  understood the code just as well: it found the same planted problems, and before simplifying it
+  compared the old and new API's responses. What it didn't leave was anything to come back to.
+  - Its explanation was a chat reply plus a page outside the project.
+  - Its comparison script stayed in a temp folder.
+  - It never deleted the dead file.
+
+  The Plan Graph runs left a map with step-by-step walkthroughs, and 21 tests in the project that
+  pass on both the old and the new code.
 
 The cost is real: runs with the skill took about 1.8× as long and used about 1.5× as many tokens.
-For a one-file script it's overkill, and the skill tells the agent to say so.
+On the explain and simplify cases they took 2 to 5× as long and cost 1.2 to 2.3× as much. For a
+one-file script it's overkill, and the skill tells the agent to say so.
 
 ## Extending it
 
@@ -284,7 +320,7 @@ For a one-file script it's overkill, and the skill tells the agent to say so.
   - a checklist of about eight decisions every project on that platform must answer;
   - a test target.
 
-  Web, API, CLI and mobile ship today; chat bots and desktop apps are the obvious next ones. The
+  Web, API, CLI and mobile ship today, plus `internals` for the modules, jobs, queues and data behind them; chat bots and desktop apps are the obvious next ones. The
   agent can write a profile on the spot when you ask for a platform that doesn't have one yet.
 - **The editor** is React 19 + React Flow 12 + Vite in [`gui/`](gui). See
   [`gui/README.md`](gui/README.md) for its layout. Run its tests with `npm --prefix gui test` and
@@ -298,6 +334,9 @@ For a one-file script it's overkill, and the skill tells the agent to say so.
   (today the agent waits with `plan.ts wait`).
 - Collapse and expand a single group in place on the full graph.
 - Highlight a Focus item's plan items on the graph, and merge proposal questions into Focus.
+- A Tours tab that steps through a walkthrough and highlights each step on the graph.
+- Open an item's source file and line in your editor from the inspector.
+- Generate an `ARCHITECTURE.md` from the plan.
 - Node positions saved in the plan instead of in browser storage.
 - Profiles for chat bots and desktop apps.
 

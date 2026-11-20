@@ -1,0 +1,13 @@
+schema_version: "1.1"
+name: explains-orders-service
+context:
+  scaffold_script: place-files.sh
+expected_outcome: |
+  A retroactive plan-graph/plan.json for orders-service that maps its internals with the
+  internals profile (the orders service, inventory, the payments and mail providers, the order
+  and stock data, the in-process queue and the confirmation job) next to the HTTP endpoints,
+  without a node per helper file, plus a walkthrough of placing an order in plan-graph/focus.json
+  whose steps follow the real path. The reply points to where to start reading and reports what
+  the walkthroughs turned up: a declined payment leaves the reserved stock reserved, failed jobs
+  are logged and dropped with no retry, and a missing PAYMENTS_URL silently falls back to the
+  sandbox. The code is not changed.

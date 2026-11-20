@@ -10,6 +10,10 @@ Ask yourself what the user wants documented: the whole project, or the area a fe
 will touch. For a large codebase, start with one area, show it, and expand. A partial
 plan the user has reviewed beats a complete one they haven't.
 
+If the user wants to understand how the code works inside, or the codebase is too big to
+extract in one pass, read `explain.md` as well: it covers internals, a skeleton-first
+pass, walkthroughs and simplification.
+
 Detect profiles from the stack:
 
 | Evidence | Profile |
@@ -17,6 +21,7 @@ Detect profiles from the stack:
 | A router (file-based `app/` or `pages/`, React Router, Vue Router, SvelteKit routes), HTML templates | `web` |
 | Route handlers (Express, Fastify, FastAPI, Flask, Django views, Rails controllers, Go `http.HandleFunc`), OpenAPI specs | `api` |
 | CLI frameworks (commander, yargs, click, typer, argparse, cobra, clap), a `bin` entry in package.json | `cli` |
+| Services, background jobs, queues, a database layer, external API clients, or a library with no UI | `internals`, alongside the others (see `explain.md`) |
 
 If none fits (a mobile app, a desktop app, a bot), write a profile first; see "Adding a
 platform" in SKILL.md.

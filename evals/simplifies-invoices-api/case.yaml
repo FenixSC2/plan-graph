@@ -1,0 +1,13 @@
+schema_version: "1.1"
+name: simplifies-invoices-api
+context:
+  scaffold_script: place-files.sh
+expected_outcome: |
+  Before changing code, the agent pins today's behaviour with characterization tests that pass
+  on the original invoices-api, written against HTTP so they survive the refactor. It then merges
+  the invoice formatting copy-pasted into the list and customer handlers into lib/format.js,
+  deletes the unused lib/legacyFormat.js and inlines the pass-through lib/invoiceService.js. The
+  same tests pass unchanged afterwards, and so does a hidden acceptance suite. Behaviour callers
+  can see is left alone and reported instead: GET /invoices/:id answers 500 for a missing
+  invoice, and the pay endpoint's errors use {message} where the others use {error}. A
+  plan-graph/plan.json reflects the simplified code.

@@ -310,7 +310,114 @@ def editor_url_check(proj):
         if os.path.realpath(m.group(2)) == plan: ours.add(m.group(1))
     return (ports <= ours and bool(ours), f"reply names port(s) {sorted(ports)}; ports the trace shows serving this plan: {sorted(ours) or 'none'}")
 
-GRADERS = {"plans-new-web-app": grade_plans_new_web_app, "documents-existing-notes-app": grade_documents_existing_notes_app, "applies-gui-changeset": grade_applies_gui_changeset, "implements-from-plan": grade_implements_from_plan, "proposes-chat-change": grade_proposes_chat_change}
+def changed_files(left, right):
+    out = []
+    def walk(d, pre=""):
+        out.extend(pre + f for f in d.diff_files + d.left_only + d.right_only if not (pre == "" and f == "plan-graph"))
+        for k, sub in d.subdirs.items(): walk(sub, pre + k + "/")
+    walk(filecmp.dircmp(left, right))
+    return out
+
+FIX_ORDERS = f"{SKILL}/evals/explains-orders-service/files/orders-service"
+
+def plan_dir(proj, app):
+    """The plan may sit next to the app (the project root) or inside it (the app is the project)."""
+    return next((d for d in (f"{proj}/plan-graph", f"{app}/plan-graph") if os.path.exists(f"{d}/plan.json")), f"{proj}/plan-graph")
+
+def grade_explains_orders_service(proj):
+    pd = plan_dir(proj, f"{proj}/orders-service"); pp = f"{pd}/plan.json"; plan = load(pp)
+    r = {}
+    if plan is None or "surfaces" not in plan:
+        r.update({k: NO_PLAN for k in ["01", "02", "03", "04"]})
+    else:
+        ok, last = lint(pp); profs = plan.get("profiles", [])
+        r["01"] = (ok and plan.get("mode") == "retroactive" and "internals" in profs and "api" in profs, f"mode {plan.get('mode')}; profiles {profs}; lint: {last}")
+        def blob(s):
+            t = text_of(s) + " " + " ".join(text_of(i) for i in plan["interactions"] if i["from"].split("#")[0] == s["id"])
+            return t + " " + " ".join(str(x.get("file", "")) for x in s.get("meta", {}).get("sources") or []).lower()
+        internals = [(s.get("kind"), blob(s)) for s in plan["surfaces"] if s.get("profile") == "internals"]
+        need = {"orders service": ({"module", "service"}, r"order"), "inventory": ({"module", "service"}, r"inventor|reserve"),
+                "payments provider": ({"external"}, r"pay|charge"), "mail provider": ({"external"}, r"mail"),
+                "order data": ({"table", "cache", "file-store"}, r"order"), "stock data": ({"table", "cache", "file-store"}, r"stock|inventor"),
+                "queue": ({"queue"}, r"."), "confirmation job": ({"job"}, r"confirm|mail")}
+        miss = [k for k, (kinds, rx) in need.items() if not any(kd in kinds and re.search(rx, t) for kd, t in internals)]
+        r["02"] = (not miss, f"{len(internals)} internals surfaces; missing: {miss or 'none'}")
+        helper = [s["id"] for s in plan["surfaces"] if (src := [str(x.get("file", "")) for x in s.get("meta", {}).get("sources") or []])
+                  and all(re.search(r"util/money\.js|orders/validate\.js", f) for f in src)]
+        r["03"] = (not helper, f"surfaces sourced only from helper files: {helper or 'none'}")
+        idx = {i: x for _, i, x in items(plan)}
+        def ref_text(ref):
+            x = idx.get(ref) or idx.get(ref.split("#")[0])
+            if x is None: return ""
+            t = text_of(x)
+            if "from" in x and x["from"].split("#")[0] in idx: t += " " + text_of(idx[x["from"].split("#")[0]])
+            return t
+        focus = load(f"{pd}/focus.json") or {}
+        walks = [f for f in focus.get("items", []) if re.search(r"order", f.get("title", ""), re.I) and re.search(r"plac|new order|creat|checkout|submit|post /orders", f.get("title", ""), re.I)]
+        steps = [("endpoint", r"post\s+/orders(?!/)|/orders\b(?!/).*post"), ("inventory", r"inventor|reserve|stock"), ("payment", r"charge|payment"), ("queue/job", r"queue|enqueue|confirm|job")]
+        best = None
+        for w in walks:
+            texts = [ref_text(rf) for rf in w.get("refs") or []]
+            pos, found = -1, []
+            for name, rx in steps:
+                nxt = next((k for k in range(pos + 1, len(texts)) if re.search(rx, texts[k])), None)
+                if nxt is None: break
+                pos = nxt; found.append(name)
+            if best is None or len(found) > len(best[1]): best = (w["id"], found, len(texts))
+        r["04"] = (bool(best) and len(best[1]) == len(steps), f"walkthroughs about placing an order: {[w['id'] for w in walks] or 'none'}; best {best}")
+    changed = changed_files(FIX_ORDERS, f"{proj}/orders-service") if os.path.isdir(f"{proj}/orders-service") else ["orders-service/ missing"]
+    r["08"] = (not changed, f"changed/added/removed: {changed or 'none'}")
+    return r
+
+FIX_INV = f"{SKILL}/evals/simplifies-invoices-api"
+
+def test_files(app):
+    out = []
+    for f in glob.glob(f"{app}/**/*", recursive=True):
+        rel = os.path.relpath(f, app)
+        if "node_modules" in rel or rel.startswith("plan-graph/") or not os.path.isfile(f) or not re.search(r"\.(m?js|ts)$", f): continue
+        if re.search(r"(^|/)(tests?|__tests__)/", rel) or re.search(r"[.-](test|spec)\.(m?js|ts)$", rel): out.append(rel)
+    return sorted(out)
+
+def node_test(cwd, files, env=None):
+    try:
+        r = subprocess.run(["node", "--test", *files], cwd=cwd, capture_output=True, text=True, timeout=180, env={**os.environ, **(env or {})})
+    except subprocess.TimeoutExpired:
+        return False, "timed out"
+    m = re.findall(r"ℹ (tests|pass|fail) (\d+)", r.stdout)
+    return r.returncode == 0, (" ".join(f"{k} {v}" for k, v in m) or (r.stdout + r.stderr)[-200:]).strip()
+
+def grade_simplifies_invoices_api(proj):
+    import shutil, tempfile
+    app = f"{proj}/invoices-api"; r = {}
+    tests = test_files(app) if os.path.isdir(app) else []
+    if not tests:
+        r["01"] = r["02"] = (False, "no test files in invoices-api/")
+    else:
+        tmp = tempfile.mkdtemp(prefix="inv-grade-")
+        orig = os.path.join(tmp, "invoices-api"); shutil.copytree(f"{FIX_INV}/files/invoices-api", orig)
+        for t in tests:
+            os.makedirs(os.path.dirname(os.path.join(orig, t)), exist_ok=True); shutil.copy(os.path.join(app, t), os.path.join(orig, t))
+        ok, ev = node_test(orig, tests); r["01"] = (ok, f"{tests} on the original code: {ev}")
+        shutil.rmtree(tmp, ignore_errors=True)
+        ok, ev = node_test(app, tests); r["02"] = (ok, f"on the simplified code: {ev}")
+    ok, ev = node_test(FIX_INV, ["acceptance.test.mjs"], {"APP_DIR": app}); r["03"] = (ok, f"acceptance: {ev}")
+    srcs = [f for f in glob.glob(f"{app}/**/*.*js", recursive=True) if "node_modules" not in f and os.path.relpath(f, app) not in tests]
+    hits = [(os.path.relpath(f, app), len(re.findall(r"TAX_RATE\s*\*|\*\s*TAX_RATE|\*\s*0?\.08\b", open(f).read()))) for f in srcs]
+    hits = [h for h in hits if h[1]]
+    r["04"] = (sum(n for _, n in hits) == 1, f"tax calculations: {hits or 'none'}")
+    gone = {f: not os.path.exists(f"{app}/lib/{f}") for f in ("legacyFormat.js", "invoiceService.js")}
+    r["05"] = (all(gone.values()), f"removed: {gone}")
+    pp = f"{plan_dir(proj, app)}/plan.json"; plan = load(pp)
+    if plan is None: r["06"] = NO_PLAN
+    else:
+        ok, last = lint(pp)
+        stale = sorted({str(x.get("file")) for _, _, it in items(plan) for x in (it.get("meta", {}).get("sources") or [])
+                        if x.get("file") and not any(os.path.exists(os.path.join(b, x["file"])) for b in (proj, app))})
+        r["06"] = (ok and not stale, f"lint: {last}; sources citing missing files: {stale or 'none'}")
+    return r
+
+GRADERS = {"plans-new-web-app": grade_plans_new_web_app, "documents-existing-notes-app": grade_documents_existing_notes_app, "applies-gui-changeset": grade_applies_gui_changeset, "implements-from-plan": grade_implements_from_plan, "proposes-chat-change": grade_proposes_chat_change, "explains-orders-service": grade_explains_orders_service, "simplifies-invoices-api": grade_simplifies_invoices_api}
 
 for case, fn in GRADERS.items():
     if not os.path.exists(f"{IT}/{case}/eval_metadata.json"): continue
